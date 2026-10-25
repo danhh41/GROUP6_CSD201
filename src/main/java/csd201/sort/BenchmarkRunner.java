@@ -87,7 +87,7 @@ public class BenchmarkRunner {
                 throw new IllegalArgumentException("algo chua dang ky: " + name);
             }
 
-            int[] a = TempGenerators.generate(data, n, seed, k);
+            int[] a = DataGenerator.generate(data, n, seed, k);
 
             // Ngoài vùng đo: băm chuẩn từ Arrays.sort, rồi giải phóng bản chuẩn
             int[] ref = a.clone();
@@ -116,7 +116,7 @@ public class BenchmarkRunner {
             // ---- Lượt --count: chạy riêng, sau khi đã đo xong ----
             if (algo.counter != null) {
                 a = null;
-                int[] b = TempGenerators.generate(data, n, seed, k);
+                int[] b = DataGenerator.generate(data, n, seed, k);
                 operationCount = algo.counter.applyAsLong(b);
                 if (hash(b) != refHash || !isSorted(b)) {
                     status = "false";
