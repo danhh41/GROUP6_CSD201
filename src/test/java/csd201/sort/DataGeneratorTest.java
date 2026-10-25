@@ -214,6 +214,7 @@ public class DataGeneratorTest {
 
     @Test
     @DisplayName("Kiểm tra tính tương thích ngược của TempGenerators")
+    @SuppressWarnings("deprecation")
     public void testTempGeneratorsBackwardsCompatibility() {
         int n = 500;
         assertArrayEquals(
