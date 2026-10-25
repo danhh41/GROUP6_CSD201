@@ -37,8 +37,8 @@ public class BenchmarkRunner {
         REGISTRY.put("heap", new Algo(HeapSort::sort, HeapSort::sortWithCount));
         REGISTRY.put("radix", new Algo(RadixSort::sort, RadixSort::sortWithCount));
         REGISTRY.put("lib", new Algo(Arrays::sort, null));
-        // REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
-        // REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
+        REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
+        REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
         // REGISTRY.put("pdq",   new Algo(PdqSort::sort,   PdqSort::sortWithCount));
     }
 
@@ -80,6 +80,7 @@ public class BenchmarkRunner {
         long heapPeak = -1;
         String outputCheck = "";
         long operationCount = -1;
+        int maxDepth = -1;
 
         try {
             Algo algo = REGISTRY.get(name);
@@ -117,7 +118,16 @@ public class BenchmarkRunner {
             if (algo.counter != null) {
                 a = null;
                 int[] b = DataGenerator.generate(data, n, seed, k);
-                operationCount = algo.counter.applyAsLong(b);
+                long rawCount = algo.counter.applyAsLong(b);
+                if ("quick".equals(name)) {
+                    maxDepth = QuickSort.unpackDepth(rawCount);
+                    operationCount = QuickSort.unpackComparisons(rawCount);
+                } else if ("merge".equals(name)) {
+                    maxDepth = MergeSort.unpackDepth(rawCount);
+                    operationCount = MergeSort.unpackComparisons(rawCount);
+                } else {
+                    operationCount = rawCount;
+                }
                 if (hash(b) != refHash || !isSorted(b)) {
                     status = "false";
                 }
@@ -133,7 +143,7 @@ public class BenchmarkRunner {
                 csvFile, name, data, n, seed, k,
                 elapsedMs,
                 heapBefore, heapPeak,
-                -1,            // max_depth: heap/radix không đệ quy; xác nhận với nhóm
+                maxDepth,
                 variant,
                 outputCheck,
                 operationCount,

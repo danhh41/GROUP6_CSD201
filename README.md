@@ -43,9 +43,9 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 
 ---
 
-## 2. Trạng thái module: Người 2 – Cặp 1 (Bộ sinh dữ liệu Data Generator D1 – D5)
+## 2. Trạng thái module: Người 2 – Cặp 1 (Data Generator D1 – D5 & Merge Sort)
 
-Đã hoàn thành cài đặt chuẩn hóa dùng chung cho toàn bộ nhóm và kiểm thử (8/8 tests pass, tổng 19/19 tests pass toàn dự án).
+Đã hoàn thành cài đặt chuẩn hóa bộ sinh dữ liệu và thuật toán Merge Sort (8/8 tests DataGenerator, 6/6 tests MergeSort, tổng 25/25 tests pass toàn dự án).
 
 ### A. Bộ sinh dữ liệu (`csd201.sort.DataGenerator`)
 - **Miền giá trị:** Mảng thuần `int[]` với khóa nguyên không âm trong miền $[0, 2^{31} - 1]$ (từ `0` đến `Integer.MAX_VALUE`).
@@ -82,7 +82,62 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 
 ---
 
-## 3. Hướng dẫn chạy kiểm thử
+### B. Merge Sort (`csd201.sort.MergeSort`)
+- **Thuật toán:** Top-Down Merge Sort chia đôi đệ quy từ trên xuống.
+- **Tên trong CSV:** `merge`
+- **Bộ nhớ phụ:** Cấp phát duy nhất 1 lần mảng phụ `int[] aux = new int[N]` ở hàm gọi ban đầu và truyền qua các tầng đệ quy (tuyệt đối không `new` mảng con bên trong).
+- **Quy tắc trộn:** Không áp dụng tối ưu bỏ qua trộn `if (a[mid] <= a[mid+1]) return;`, luôn thực hiện bước trộn ở mọi trường hợp.
+- **Chữ ký hàm:**
+  ```java
+  // Sắp xếp tăng dần toàn bộ mảng (Benchmarking)
+  public static void sort(int[] a)
+
+  // Sắp xếp đoạn nửa mở [lo, hi)
+  public static void sortRange(int[] a, int lo, int hi)
+
+  // Đếm số phép so sánh khóa và đo max_depth cho lượt --count của NGƯỜI 4
+  public static long sortWithCount(int[] a)
+  public static long sortRangeWithCount(int[] a, int lo, int hi)
+
+  // Giải đóng gói kết quả: 32-bit cao = max_depth, 32-bit thấp = comparisons
+  public static int unpackDepth(long packed)
+  public static long unpackComparisons(long packed)
+  ```
+- **Quy ước đếm:**
+  - `comparisons`: Đếm số phép so sánh khóa khi trộn hai mảng con (`aux[j] < aux[i]`).
+  - `max_depth`: Tăng biến đếm độ sâu khi gọi đệ quy và cập nhật giá trị cực đại quan sát được.
+
+---
+
+## 3. Trạng thái module: Người 1 – Cặp 1 (Quick Sort)
+
+Đã hoàn thành cài đặt thuật toán Quick Sort.
+
+### A. Quick Sort (`csd201.sort.QuickSort`)
+- **Thuật toán:** Phân hoạch Hoare hai đầu, pivot là trung vị của 3 (median-of-three: `lo`, `mid`, `hi`), đệ quy hai phía.
+- **Tên trong CSV:** `quick`
+- **Chữ ký hàm:**
+  ```java
+  // Sắp xếp tăng dần toàn bộ mảng
+  public static void sort(int[] a)
+
+  // Sắp xếp đoạn nửa mở [lo, hi)
+  public static void sortRange(int[] a, int lo, int hi)
+
+  // Đếm số phép so sánh khóa và đo max_depth cho lượt --count
+  public static long sortWithCount(int[] a)
+
+  // Giải đóng gói kết quả: 32-bit cao = max_depth, 32-bit thấp = comparisons
+  public static int unpackDepth(long packed)
+  public static long unpackComparisons(long packed)
+  ```
+- **Quy ước đếm:**
+  - `comparisons`: Đếm phép so sánh khi chọn pivot median-of-three và so sánh trong phân hoạch Hoare.
+  - `max_depth`: Đo độ sâu đệ quy lớn nhất.
+
+---
+
+## 4. Hướng dẫn chạy kiểm thử
 
 Yêu cầu: JDK 17+ và Maven.
 
