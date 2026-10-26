@@ -1,6 +1,6 @@
 # Chạy hàng loạt RQ2: nhiều N x nhiều seed x D1-D5. Mỗi tổ hợp = 1 JVM riêng.
 param(
-    [string]$Java = "D:\Java\bin\java.exe",
+    [string]$Java = "",
     [string]$ClassPath = "target\classes",
     [string]$Xmx = "8g",
     [int]$TimeoutSec = 300,
@@ -9,7 +9,17 @@ param(
     [int[]]$Seeds = @(1, 2, 3)
 )
 
-$algos = @("heap", "radix", "lib")
+if (-not $Java) {
+    if (Test-Path "C:\Program Files\Java\jdk-17\bin\java.exe") {
+        $Java = "C:\Program Files\Java\jdk-17\bin\java.exe"
+    } elseif (Get-Command java -ErrorAction SilentlyContinue) {
+        $Java = "java"
+    } else {
+        $Java = "D:\Java\bin\java.exe"
+    }
+}
+
+$algos = @("quick", "merge", "heap", "radix", "lib")
 $datasets = @(
     @{d = "D1"; k = 0}, @{d = "D2"; k = 0}, @{d = "D3"; k = 0}, @{d = "D4"; k = 0},
     @{d = "D5"; k = 1000}, @{d = "D5"; k = 10}, @{d = "D5"; k = 2}
