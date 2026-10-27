@@ -9,15 +9,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Tham số: --algo heap|radix|lib --data D1..D5 --n 1000000 --seed 1 --k 1000
- * --variant default --out results/benchmark.csv Không truyền --algo thì chạy
- * tất cả thuật toán đã đăng ký. Khi chạy hàng loạt, mỗi tổ hợp nên là một tiến
- * trình JVM riêng (truyền --algo).
+ * Tham số: --algo heap|radix|quick|merge|lib --data D1..D5 --n 1000000 --seed 1
+ * --k 1000 --variant default --timeout 600 --count --out results/benchmark.csv
+ * Không truyền --algo thì chạy tất cả thuật toán đã đăng ký. Khi chạy hàng
+ * loạt, mỗi tổ hợp nên là một tiến trình JVM riêng (truyền --algo).
  */
 public class BenchmarkRunner {
 
@@ -32,7 +32,7 @@ public class BenchmarkRunner {
         }
     }
 
-    // ===== Đăng ký thuật toán: thêm quick, merge, pdq khi các bạn bàn giao =====
+    // ===== Đăng ký thuật toán =====
     private static final Map<String, Algo> REGISTRY = new LinkedHashMap<>();
 
     static {
@@ -41,8 +41,11 @@ public class BenchmarkRunner {
         REGISTRY.put("lib", new Algo(Arrays::sort, null));
         REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
         REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
-        REGISTRY.put("pdq", new Algo(PdqSort::sort, PdqSort::sortWithCount));
+        // REGISTRY.put("pdq",   new Algo(PdqSort::sort,   PdqSort::sortWithCount));
     }
+
+    // Giới hạn thời gian cho mỗi lượt chạy (mili giây). Đổi bằng --timeout (giây).
+    private static long timeoutMs = 600_000;
 
     public static void main(String[] args) {
         Map<String, String> o = parse(args);
@@ -75,9 +78,6 @@ public class BenchmarkRunner {
             System.out.println("Loi ghi CSV: " + e.getMessage());
         }
     }
-    // Giới hạn thời gian cho mỗi lượt chạy. 600 giây là số mình tạm đặt,
-// hãy đổi theo quy định chung khi có.
-    private static long timeoutMs = 600_000;
 
     /**
      * Chạy task trong luồng riêng. Trả về true nếu xong kịp, false nếu quá hạn.
@@ -87,8 +87,8 @@ public class BenchmarkRunner {
         Thread worker = new Thread(() -> {
             try {
                 task.run();
-            } catch (Throwable t) {
-                error.set(t);
+            } catch (Throwable ex) {
+                error.set(ex);
             }
         }, "sort-worker");
         worker.setDaemon(true);
@@ -102,17 +102,16 @@ public class BenchmarkRunner {
     }
 
     /**
-     * Ném lại lỗi bắt được từ luồng phụ để catch cũ (oom/crash) xử lý như
-     * trước.
+     * Ném lại lỗi bắt được từ luồng phụ để catch ở runOne xử lý (oom/crash).
      */
-    private static void rethrow(Throwable t) {
-        if (t instanceof Error) {
-            throw (Error) t;
+    private static void rethrow(Throwable ex) {
+        if (ex instanceof Error) {
+            throw (Error) ex;
         }
-        if (t instanceof RuntimeException) {
-            throw (RuntimeException) t;
+        if (ex instanceof RuntimeException) {
+            throw (RuntimeException) ex;
         }
-        throw new RuntimeException(t);
+        throw new RuntimeException(ex);
     }
 
     private static void runOne(String name, String data, int n, long seed,
@@ -138,44 +137,10 @@ public class BenchmarkRunner {
             int[] a = DataGenerator.generate(data, n, seed, k);
             AtomicReference<Throwable> err = new AtomicReference<>();
 
-            // Ngoài vùng đo: băm chuẩn từ Arrays.sort, rồi giải phóng bản chuẩn
-            int[] ref = a.clone();
-            Arrays.sort(ref);
-            long refHash = hash(ref);
-            ref = null;
-
-            // ---- Lượt đo thời gian (không đếm gì) ----
-            System.gc();
-            heapBefore = usedMemory();
-            resetPeaks();
-
-            long start = System.nanoTime();
-            algo.sorter.accept(a);
-            long end = System.nanoTime();
-
-            heapPeak = Math.max(heapBefore, readPeaks());
-            elapsedMs = (end - start) / 1_000_000.0;
-
-            long h = hash(a);
-            outputCheck = Long.toString(h);
-            if (h != refHash || !isSorted(a)) {
-                status = "false";
-            }
-
-            // ---- Lượt --count: chạy riêng, sau khi đã đo xong ----
-            if (algo.counter != null) {
-                a = null;
-                int[] b = DataGenerator.generate(data, n, seed, k);
-                long rawCount = algo.counter.applyAsLong(b);
-                if ("quick".equals(name)) {
-                    maxDepth = QuickSort.unpackDepth(rawCount);
-                    operationCount = QuickSort.unpackComparisons(rawCount);
-                } else if ("merge".equals(name)) {
-                    maxDepth = MergeSort.unpackDepth(rawCount);
-                    operationCount = MergeSort.unpackComparisons(rawCount);
-                } else if ("pdq".equals(name)) {
-                    maxDepth = PdqSort.unpackDepth(rawCount);
-                    operationCount = PdqSort.unpackComparisons(rawCount);
+            if (countOnly) {
+                // Chi dem thao tac, khong do thoi gian
+                if (algo.counter == null) {
+                    status = "unsupported_count";
                 } else {
                     // Tao ket qua chuan TRUOC khi dem, vi bo dem sap xep a tai cho
                     int[] expected = a.clone();
@@ -220,9 +185,9 @@ public class BenchmarkRunner {
 
                 long[] elapsedNs = new long[1];
                 boolean done = runWithTimeout(() -> {
-                    long start = System.nanoTime();
+                    long t0 = System.nanoTime();
                     algo.sorter.accept(a);
-                    elapsedNs[0] = System.nanoTime() - start;
+                    elapsedNs[0] = System.nanoTime() - t0;
                 }, timeoutMs, err);
 
                 if (!done) {
@@ -281,15 +246,6 @@ public class BenchmarkRunner {
             h = 31 * h + x;
         }
         return h;
-    }
-
-    private static boolean isSorted(int[] a) {
-        for (int i = 1; i < a.length; i++) {
-            if (a[i - 1] > a[i]) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static long usedMemory() {
