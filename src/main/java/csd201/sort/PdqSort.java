@@ -89,6 +89,15 @@ public final class PdqSort {
         new PdqSort(false, false, false).run(a, 0, a.length);
     }
 
+    public static void sort(int[] a, String variant) {
+        if (a == null) {
+            throw new IllegalArgumentException("Mảng không được null");
+        }
+        boolean useA = !"noA".equalsIgnoreCase(variant) && !"core".equalsIgnoreCase(variant);
+        boolean useB = !"noB".equalsIgnoreCase(variant) && !"core".equalsIgnoreCase(variant);
+        new PdqSort(false, useA, useB).run(a, 0, a.length);
+    }
+
     /**
      * Sắp xếp tăng dần đoạn nửa mở {@code [lo, hi)}.
      *
@@ -112,6 +121,17 @@ public final class PdqSort {
             throw new IllegalArgumentException("Mảng không được null");
         }
         PdqSort p = new PdqSort(true, false, false);
+        p.run(a, 0, a.length);
+        return pack(p.maxDepth, p.comparisons);
+    }
+
+    public static long sortWithCount(int[] a, String variant) {
+        if (a == null) {
+            throw new IllegalArgumentException("Mảng không được null");
+        }
+        boolean useA = !"noA".equalsIgnoreCase(variant) && !"core".equalsIgnoreCase(variant);
+        boolean useB = !"noB".equalsIgnoreCase(variant) && !"core".equalsIgnoreCase(variant);
+        PdqSort p = new PdqSort(true, useA, useB);
         p.run(a, 0, a.length);
         return pack(p.maxDepth, p.comparisons);
     }
@@ -383,7 +403,33 @@ public final class PdqSort {
      * <= pivot sang trái, > pivot sang phải; trả về vị trí cuối cùng của pivot.
      */
     private int partitionLeft(int begin, int end) {
-        throw new UnsupportedOperationException("Cơ chế B: Người 6 cài đặt partitionLeft");
+        int pivot = a[begin];
+        int first = begin;
+        int last = end;
+
+        while (less(pivot, a[--last])) {
+        }
+
+        if (last == end - 1) {
+            while (first < last && !less(pivot, a[++first])) {
+            }
+        } else {
+            while (!less(pivot, a[++first])) {
+            }
+        }
+
+        while (first < last) {
+            swap(first, last);
+            while (less(pivot, a[--last])) {
+            }
+            while (!less(pivot, a[++first])) {
+            }
+        }
+
+        int pivotPos = first - 1;
+        a[begin] = a[pivotPos];
+        a[pivotPos] = pivot;
+        return pivotPos;
     }
 
     /*
@@ -392,7 +438,23 @@ public final class PdqSort {
      * PARTIAL_INSERTION_SORT_LIMIT; trả về true nếu sắp xong đoạn.
      */
     private boolean partialInsertionSort(int begin, int end) {
-        throw new UnsupportedOperationException("Cơ chế A: Người 6 cài đặt partialInsertionSort");
+        if (begin == end) {
+            return true;
+        }
+        int limit = 0;
+        for (int cur = begin + 1; cur < end; cur++) {
+            int tmp = a[cur];
+            int sift = cur;
+            while (sift > begin && less(tmp, a[sift - 1])) {
+                a[sift] = a[sift - 1];
+                sift--;
+                if (++limit > PARTIAL_INSERTION_SORT_LIMIT) {
+                    return false;
+                }
+            }
+            a[sift] = tmp;
+        }
+        return true;
     }
 
     // =========================================================================
