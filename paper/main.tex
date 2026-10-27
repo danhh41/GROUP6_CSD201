@@ -144,7 +144,7 @@ Radix Sort xử lý đúng 4 lượt ứng với 4 byte của số nguyên khôn
 Đề tài quy định rõ:
 \begin{itemize}
     \item Với Quick, Merge, Heap: đếm số phép so sánh khóa trực tiếp giữa hai phần tử dữ liệu.
-    \item Với Radix Sort: do không so sánh khóa, đếm số lần đọc và ghi mảng dữ liệu. Mỗi lượt tốn $N$ đọc (đếm tần suất) + $N$ đọc và $N$ ghi (phân phối) = $3N$. Qua 4 lượt, tổng số thao tác cố định là $12N$.
+    \item Với Radix Sort: do không so sánh khóa, đếm số lần đọc và ghi mảng dữ liệu. Mỗi lượt tốn $N$ đọc (đếm tần suất) + $N$ đọc và $N$ ghi (phân phối) = $3N$. Qua 4 lượt, tổng số thao tác cố định là $12N$. Việc chỉ đo số phép so sánh sẽ không phản ánh đúng chi phí của Radix Sort (vốn có 0 so sánh nhưng chịu chi phí trích xuất bit và chuyển dữ liệu), do đó việc chuẩn hóa sang số thao tác đọc/ghi là bắt buộc để đảm bảo tính công bằng khi đánh giá.
 \end{itemize}
 
 \subsection{Kiểm tra tính đúng và Oracle}
