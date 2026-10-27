@@ -32,21 +32,21 @@ public final class RadixSort {
                 count[r] = 0;
             }
 
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n; i++) {    //Đếm tần suất
                 int digit = (src[i] >>> shift) & MASK;
                 count[digit + 1]++;
             }
 
-            for (int r = 0; r < RADIX; r++) {
+            for (int r = 0; r < RADIX; r++) { //Cộng dồn
                 count[r + 1] += count[r];
             }
 
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n; i++) {//Chuyển phần tử
                 int digit = (src[i] >>> shift) & MASK;
                 dst[count[digit]++] = src[i];
             }
 
-            int[] tmp = src;
+            int[] tmp = src;//Đổi vai trò 
             src = dst;
             dst = tmp;
         }
