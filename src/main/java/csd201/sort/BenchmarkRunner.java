@@ -41,7 +41,7 @@ public class BenchmarkRunner {
         REGISTRY.put("lib", new Algo(Arrays::sort, null));
         REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
         REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
-        // REGISTRY.put("pdq",   new Algo(PdqSort::sort,   PdqSort::sortWithCount));
+        REGISTRY.put("pdq", new Algo(PdqSort::sort, PdqSort::sortWithCount));
     }
 
     public static void main(String[] args) {
@@ -138,10 +138,44 @@ public class BenchmarkRunner {
             int[] a = DataGenerator.generate(data, n, seed, k);
             AtomicReference<Throwable> err = new AtomicReference<>();
 
-            if (countOnly) {
-                // Chi dem thao tac, khong do thoi gian
-                if (algo.counter == null) {
-                    status = "unsupported_count";
+            // Ngoài vùng đo: băm chuẩn từ Arrays.sort, rồi giải phóng bản chuẩn
+            int[] ref = a.clone();
+            Arrays.sort(ref);
+            long refHash = hash(ref);
+            ref = null;
+
+            // ---- Lượt đo thời gian (không đếm gì) ----
+            System.gc();
+            heapBefore = usedMemory();
+            resetPeaks();
+
+            long start = System.nanoTime();
+            algo.sorter.accept(a);
+            long end = System.nanoTime();
+
+            heapPeak = Math.max(heapBefore, readPeaks());
+            elapsedMs = (end - start) / 1_000_000.0;
+
+            long h = hash(a);
+            outputCheck = Long.toString(h);
+            if (h != refHash || !isSorted(a)) {
+                status = "false";
+            }
+
+            // ---- Lượt --count: chạy riêng, sau khi đã đo xong ----
+            if (algo.counter != null) {
+                a = null;
+                int[] b = DataGenerator.generate(data, n, seed, k);
+                long rawCount = algo.counter.applyAsLong(b);
+                if ("quick".equals(name)) {
+                    maxDepth = QuickSort.unpackDepth(rawCount);
+                    operationCount = QuickSort.unpackComparisons(rawCount);
+                } else if ("merge".equals(name)) {
+                    maxDepth = MergeSort.unpackDepth(rawCount);
+                    operationCount = MergeSort.unpackComparisons(rawCount);
+                } else if ("pdq".equals(name)) {
+                    maxDepth = PdqSort.unpackDepth(rawCount);
+                    operationCount = PdqSort.unpackComparisons(rawCount);
                 } else {
                     // Tao ket qua chuan TRUOC khi dem, vi bo dem sap xep a tai cho
                     int[] expected = a.clone();

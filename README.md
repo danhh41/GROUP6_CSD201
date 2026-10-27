@@ -143,4 +143,42 @@ Yêu cầu: JDK 17+ và Maven.
 
 ```bash
 mvn clean test
-```
+```
+
+---
+
+## 5. Trạng thái module: Người 5 – Cặp 3 (pdqsort lõi)
+
+Đã hoàn thành phần lõi của pdqsort và kiểm thử (9/9 tests `PdqSortTest`, tổng 34/34 tests toàn dự án). Đã đăng ký `pdq` trong `BenchmarkRunner`.
+
+### A. pdqsort (`csd201.sort.PdqSort`)
+- **Thuật toán:** theo Peters (arXiv:2106.05123). Phần lõi gồm:
+  - Insertion Sort cho đoạn dưới 24 phần tử (bản không kiểm tra biên cho đoạn không sát mép trái).
+  - Pivot là trung vị của 3; đoạn trên 128 phần tử dùng ninther của Tukey.
+  - Phân hoạch phải (`< pivot` sang trái, `>= pivot` sang phải), trả về cờ "đã phân hoạch sẵn".
+  - Chống trường hợp xấu: phân hoạch lệch khi một nửa `< size/8`; hoán đổi phá mẫu; quá `floor(log2 N)` lần thì chuyển đoạn đó sang `HeapSort.sortRange` (Người 3).
+- **Tên trong CSV:** `pdq`
+- **Chữ ký hàm:**
+  ```java
+  // Sắp xếp tăng dần toàn bộ mảng (lượt đo thời gian)
+  public static void sort(int[] a)
+
+  // Sắp xếp đoạn nửa mở [lo, hi)
+  public static void sortRange(int[] a, int lo, int hi)
+
+  // Lượt --count: long đóng gói, 32-bit cao = max_depth, 32-bit thấp = comparisons
+  public static long sortWithCount(int[] a)
+  public static int unpackDepth(long packed)
+  public static long unpackComparisons(long packed)
+
+  // Dùng cho biến thể (Người 6): new PdqSort(counting, useA, useB).run(a, lo, hi)
+  ```
+- **Quy ước đếm:**
+  - `comparisons`: mọi phép so sánh khóa của phần lõi đi qua một hàm `less()`; phần Heap Sort dự phòng cộng thêm từ `HeapSort.sortRangeWithCount`.
+  - `max_depth`: độ sâu đệ quy lớn nhất (nửa phải xử lý bằng vòng lặp nên không tăng độ sâu).
+- **Chỗ dành cho Người 6:** hai hàm `partitionLeft` (cơ chế B) và `partialInsertionSort` (cơ chế A), đánh dấu `[NGƯỜI 6]`, bật bằng cờ `useA`, `useB`.
+
+### B. Bằng chứng (`csd201.sort.PdqEvidence`)
+- `java -cp target/classes csd201.sort.PdqEvidence ablation` → `results/pdq_ablation.csv`: tắt lần lượt ninther, phá mẫu, Heap Sort dự phòng (N = 10^5).
+- `java -Xmx3g -cp target/classes csd201.sort.PdqEvidence count` → `results/pdq_count.csv`: lượt --count trên D1–D5, N = 10^6 và 10^7.
+- Tài liệu Methods/Results của cặp 3: `docs/Cap3_pdqsort_Methods_Results.docx`.
