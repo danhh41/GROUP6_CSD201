@@ -89,18 +89,18 @@ public class MergeSortTest {
             int type = t % 5;
 
             switch (type) {
-                case 0 -> { // D1: Ngẫu nhiên
+                case 0: // D1: Ngẫu nhiên
                     for (int i = 0; i < n; i++) {
                         a[i] = rng.nextInt(Integer.MAX_VALUE);
                     }
-                }
-                case 1 -> { // D2: Tăng dần
+                    break;
+                case 1: // D2: Tăng dần
                     for (int i = 0; i < n; i++) {
                         a[i] = rng.nextInt(Integer.MAX_VALUE);
                     }
                     Arrays.sort(a);
-                }
-                case 2 -> { // D3: Gần tăng dần
+                    break;
+                case 2: // D3: Gần tăng dần
                     for (int i = 0; i < n; i++) {
                         a[i] = rng.nextInt(Integer.MAX_VALUE);
                     }
@@ -110,8 +110,8 @@ public class MergeSortTest {
                         int i2 = rng.nextInt(n);
                         int tmp = a[i1]; a[i1] = a[i2]; a[i2] = tmp;
                     }
-                }
-                case 3 -> { // D4: Giảm dần
+                    break;
+                case 3: // D4: Giảm dần
                     for (int i = 0; i < n; i++) {
                         a[i] = rng.nextInt(Integer.MAX_VALUE);
                     }
@@ -119,8 +119,8 @@ public class MergeSortTest {
                     for (int i = 0; i < n / 2; i++) {
                         int tmp = a[i]; a[i] = a[n - 1 - i]; a[n - 1 - i] = tmp;
                     }
-                }
-                case 4 -> { // D5: Nhiều khóa trùng (K = 2 hoặc 10)
+                    break;
+                case 4: // D5: Nhiều khóa trùng (K = 2 hoặc 10)
                     int k = (rng.nextBoolean()) ? 2 : 10;
                     int[] keys = new int[k];
                     for (int i = 0; i < k; i++) {
@@ -129,7 +129,9 @@ public class MergeSortTest {
                     for (int i = 0; i < n; i++) {
                         a[i] = keys[rng.nextInt(k)];
                     }
-                }
+                    break;
+                default:
+                    break;
             }
 
             assertSortCorrect(a);

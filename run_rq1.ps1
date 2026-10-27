@@ -13,7 +13,7 @@ param(
     [string]$Java = "",
     [string]$ClassPath = "target\classes",
     [string]$Xmx = "8g",
-    [int]$TimeoutSec = 300,
+    [int]$TimeoutSec = 60, # Mục 6.1: Runner chờ tối đa 60 giây
     [string]$Out = "results\rq1.csv",
     [string]$SummaryOut = "results\summary_rq1.csv",
     [int[]]$Sizes = @(100000, 1000000, 5000000, 10000000, 20000000),
@@ -35,17 +35,17 @@ Write-Host "=== BAT DAU CHAY THUC NGHIEM RQ1 ===" -ForegroundColor Cyan
 Write-Host "Java Path   : $Java"
 Write-Host "ClassPath   : $ClassPath"
 Write-Host "Memory Xmx  : $Xmx"
+Write-Host "Timeout     : $TimeoutSec s"
 Write-Host "Raw CSV     : $Out"
 Write-Host "Summary CSV : $SummaryOut"
 Write-Host "Sizes N     : $($Sizes -join ', ')"
 Write-Host "Seeds       : $($Seeds -join ', ')"
 Write-Host "------------------------------------------------------------"
 
-# Các thuật toán tham gia RQ1 (4 thuật toán giáo trình + lib làm đối chứng)
-$algos = @("quick", "merge", "heap", "radix", "lib")
+# Các thuật toán tham gia RQ1 (4 thuật toán giáo trình + lib-Arrays.sort làm đối chứng)
+$algos = @("quick", "merge", "heap", "radix", "lib-Arrays.sort")
 $datasets = @(@{d = "D1"; k = 0})
 
-# Đảm bảo thư mục results tồn tại
 $outDir = Split-Path $Out
 if ($outDir -and -not (Test-Path $outDir)) {
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
@@ -55,15 +55,6 @@ function Count-Rows($f) {
     if (Test-Path $f) { return (Get-Content $f | Measure-Object -Line).Lines } else { return 0 }
 }
 
-function Median($v) {
-    $s = @($v | Sort-Object)
-    $c = $s.Count
-    if ($c -eq 0) { return $null }
-    if ($c % 2 -eq 1) { return $s[($c - 1) / 2] }
-    return ($s[$c / 2 - 1] + $s[$c / 2]) / 2
-}
-
-# 2. Vòng lặp chạy thực nghiệm đo đạc (Mỗi lượt 1 JVM riêng biệt)
 $totalRuns = $Sizes.Count * $Seeds.Count * $datasets.Count * $algos.Count
 $currentRun = 0
 
@@ -74,7 +65,8 @@ foreach ($n in $Sizes) {
                 $currentRun++
                 $before = Count-Rows $Out
                 $argList = "-Xmx$Xmx -cp `"$ClassPath`" csd201.sort.BenchmarkRunner " +
-                           "--algo $algo --data $($ds.d) --n $n --seed $seed --k $($ds.k) --out `"$Out`""
+                           "--algo $algo --data $($ds.d) --n $n --seed $seed --k $($ds.k) " +
+                           "--rq RQ1 --xmx $Xmx --out `"$Out`""
 
                 $p = Start-Process -FilePath $Java -ArgumentList $argList -PassThru -NoNewWindow
                 $finished = $p.WaitForExit($TimeoutSec * 1000)
@@ -88,11 +80,12 @@ foreach ($n in $Sizes) {
                 }
 
                 if ($status) {
-                    $row = "$algo,$($ds.d),$n,$seed,$($ds.k),,,,,default,,,$status"
+                    $runId = [System.Guid]::NewGuid().ToString().Substring(0, 8)
+                    $row = "$runId,RQ1,$algo,base,$($ds.d),$n,k=0,$seed,,1.0,1,,,,,,,$status,$Xmx,$env:COMPUTERNAME,"
                     Add-Content -Path $Out -Value $row
                 }
 
-                $msgStatus = if ($status) { $status } else { 'done' }
+                $msgStatus = if ($status) { $status } else { 'ok' }
                 $color = if ($status) { 'Red' } else { 'Green' }
                 Write-Host "[$currentRun/$totalRuns] n=$n seed=$seed $($ds.d) $algo -> $msgStatus" -ForegroundColor $color
             }
@@ -102,53 +95,8 @@ foreach ($n in $Sizes) {
 
 Write-Host "------------------------------------------------------------"
 Write-Host "DA HOAN THANH DU LIEU THO -> Ghi tai: $Out" -ForegroundColor Cyan
-Write-Host ""
 
-# 3. Tự động tổng hợp trung vị và xuất ra file CSV thứ hai (summary_rq1.csv)
-Write-Host "=== TONG HOP KET QUA VA KIEM TRA CHEO OUTPUT_CHECK ===" -ForegroundColor Cyan
-
-if (Test-Path $Out) {
-    $rows = Import-Csv $Out
-    $okRows = @($rows | Where-Object { $_.status -eq "true" })
-
-    # Kiểm tra chéo: cùng (data, n, seed, k) thì mọi thuật toán phải cho cùng output_check
-    $bad = 0
-    $okRows | Group-Object data, n, seed, k | ForEach-Object {
-        $distinct = @($_.Group | Select-Object -ExpandProperty output_check -Unique)
-        if ($distinct.Count -gt 1) {
-            $bad++
-            Write-Host "CANH BAO: output_check khong khop o nhom [$($_.Name)]" -ForegroundColor Yellow
-        }
-    }
-    if ($bad -eq 0) {
-        Write-Host "output_check khop hoan toan giua tat ca thuat toan o moi nhom!" -ForegroundColor Green
-    }
-
-    # Tính giá trị trung vị theo (algorithm, data, n, k)
-    $summary = $rows | Group-Object algorithm, data, n, k | ForEach-Object {
-        $g = $_.Group
-        $good = @($g | Where-Object { $_.status -eq "true" })
-        $times = @($good | ForEach-Object { [double]$_.elapsed_ms })
-        $peaks = @($good | ForEach-Object { [double]$_.heap_peak_bytes })
-        $ops   = @($good | ForEach-Object { [double]$_.operation_count })
-        [pscustomobject]@{
-            algorithm        = $g[0].algorithm
-            data             = $g[0].data
-            n                = [int]$g[0].n
-            k                = [int]$g[0].k
-            runs_ok          = $good.Count
-            runs_failed      = $g.Count - $good.Count
-            median_ms        = Median $times
-            min_ms           = if ($times.Count) { ($times | Measure-Object -Minimum).Minimum } else { $null }
-            max_ms           = if ($times.Count) { ($times | Measure-Object -Maximum).Maximum } else { $null }
-            median_heap_peak = Median $peaks
-            median_ops       = Median $ops
-        }
-    } | Sort-Object n, algorithm
-
-    $summary | Export-Csv -Path $SummaryOut -NoTypeInformation
-    $summary | Format-Table -AutoSize
-    Write-Host "DA XUAT FILE TONG HOP TRUNG VI -> $SummaryOut" -ForegroundColor Green
-} else {
-    Write-Host "Loi: Khong tim thay file ket qua thô $Out de tong hop!" -ForegroundColor Red
+# Gọi script tổng hợp
+if (Test-Path ".\summarize_rq1.ps1") {
+    & .\summarize_rq1.ps1 -In $Out -Out $SummaryOut
 }

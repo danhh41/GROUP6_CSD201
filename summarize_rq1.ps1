@@ -1,6 +1,5 @@
 # ==============================================================================
-# summarize_rq1.ps1 - Tách riêng tính toán trung vị cho RQ1 từ file results/rq1.csv
-# Sử dụng: powershell -ExecutionPolicy Bypass -File .\summarize_rq1.ps1
+# summarize_rq1.ps1 - Tổng hợp trung vị cho RQ1 từ file results/rq1.csv
 # ==============================================================================
 param(
     [string]$In = "results\rq1.csv",
@@ -8,11 +7,11 @@ param(
 )
 
 function Median($v) {
-    $s = @($v | Sort-Object)
+    $s = @($v | Where-Object { $_ -ne $null } | Sort-Object)
     $c = $s.Count
     if ($c -eq 0) { return $null }
     if ($c % 2 -eq 1) { return $s[($c - 1) / 2] }
-    return ($s[$c / 2 - 1] + $s[$c / 2]) / 2
+    return [Math]::Round(($s[$c / 2 - 1] + $s[$c / 2]) / 2.0, 4)
 }
 
 if (-not (Test-Path $In)) {
@@ -21,33 +20,41 @@ if (-not (Test-Path $In)) {
 }
 
 $rows = Import-Csv $In
-$okRows = @($rows | Where-Object { $_.status -eq "true" })
 
-# 1) Kiểm tra chéo: cùng (data, n, seed, k) thì mọi thuật toán phải cho cùng output_check
-$bad = 0
-$okRows | Group-Object data, n, seed, k | ForEach-Object {
-    $distinct = @($_.Group | Select-Object -ExpandProperty output_check -Unique)
-    if ($distinct.Count -gt 1) {
-        $bad++
-        Write-Host "CANH BAO: output_check khong khop o nhom [$($_.Name)]" -ForegroundColor Yellow
+# 1. Kiểm tra chéo output_check
+$okRows = @($rows | Where-Object { $_.status -eq "ok" -and $_.output_check -ne "" })
+$mismatches = 0
+$okRows | Group-Object dataset, n, seed | ForEach-Object {
+    $hashes = @($_.Group | Select-Object -ExpandProperty output_check -Unique)
+    if ($hashes.Count -gt 1) {
+        $mismatches++
+        Write-Host "CANH BAO: output_check khong khop tai nhom [$($_.Name)]" -ForegroundColor Yellow
     }
 }
-if ($bad -eq 0) { Write-Host "output_check khop o moi nhom." -ForegroundColor Green }
+if ($mismatches -eq 0) {
+    Write-Host "Kiem tra cheo thanh cong: output_check hoan toan khop o moi nhom!" -ForegroundColor Green
+}
 
-# 2) Trung vị theo (algorithm, data, n, k)
-$summary = $rows | Group-Object algorithm, data, n, k | ForEach-Object {
+# 2. Tổng hợp theo (algorithm, dataset, n)
+$summary = $rows | Group-Object algorithm, dataset, n | ForEach-Object {
     $g = $_.Group
-    $good = @($g | Where-Object { $_.status -eq "true" })
-    $times = @($good | ForEach-Object { [double]$_.elapsed_ms })
-    $peaks = @($good | ForEach-Object { [double]$_.heap_peak_bytes })
-    $ops   = @($good | ForEach-Object { [double]$_.operation_count })
+
+    $good = @($g | Where-Object { $_.status -eq "ok" })
+    $failed = @($g | Where-Object { $_.status -ne "ok" })
+
+    $timingRows = @($good | Where-Object { $_.elapsed_ms -ne $null -and $_.elapsed_ms -ne "" })
+    $times = @($timingRows | ForEach-Object { [double]$_.elapsed_ms })
+    $peaks = @($timingRows | Where-Object { $_.heap_peak_bytes -ne "" } | ForEach-Object { [double]$_.heap_peak_bytes })
+
+    $countRows = @($good | Where-Object { $_.ops_count -ne $null -and $_.ops_count -ne "" })
+    $ops   = @($countRows | ForEach-Object { [double]$_.ops_count })
+
     [pscustomobject]@{
         algorithm        = $g[0].algorithm
-        data             = $g[0].data
+        dataset          = $g[0].dataset
         n                = [int]$g[0].n
-        k                = [int]$g[0].k
         runs_ok          = $good.Count
-        runs_failed      = $g.Count - $good.Count
+        runs_failed      = $failed.Count
         median_ms        = Median $times
         min_ms           = if ($times.Count) { ($times | Measure-Object -Minimum).Minimum } else { $null }
         max_ms           = if ($times.Count) { ($times | Measure-Object -Maximum).Maximum } else { $null }
@@ -58,4 +65,4 @@ $summary = $rows | Group-Object algorithm, data, n, k | ForEach-Object {
 
 $summary | Export-Csv -Path $Out -NoTypeInformation
 $summary | Format-Table -AutoSize
-Write-Host "Da ghi file tong hop: $Out" -ForegroundColor Green
+Write-Host "Da xuat file tong hop ket qua RQ1: $Out" -ForegroundColor Green
