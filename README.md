@@ -143,4 +143,14 @@ Yêu cầu: JDK 17+ và Maven.
 
 ```bash
 mvn clean test
-```
+```
+Người 5 – Cặp 3: pdqsort lõi
+
+- PdqSort: Insertion Sort < 24, trung vị của 3 / ninther > 128, phân hoạch phải
+  kèm cờ "đã phân hoạch sẵn", chống trường hợp xấu (phá mẫu, quá log2 N lần
+  thì chuyển sang HeapSort.sortRange của Người 3)
+- Chừa sẵn partitionLeft / partialInsertionSort cho Người 6 (cờ useA, useB)
+- Đăng ký "pdq" trong BenchmarkRunner (@Người 4 xem giúp 2 chỗ sửa)
+- PdqSortTest: 9 test, mvn test 34/34 pass
+- PdqEvidence + results/pdq_*.csv: số liệu cho tài liệu
+- docs/Cap3_pdqsort_Methods_Results.docx: Methods/Results cặp 3
