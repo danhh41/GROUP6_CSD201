@@ -182,3 +182,30 @@ mvn clean test
 - `java -cp target/classes csd201.sort.PdqEvidence ablation` → `results/pdq_ablation.csv`: tắt lần lượt ninther, phá mẫu, Heap Sort dự phòng (N = 10^5).
 - `java -Xmx3g -cp target/classes csd201.sort.PdqEvidence count` → `results/pdq_count.csv`: lượt --count trên D1–D5, N = 10^6 và 10^7.
 - Tài liệu Methods/Results của cặp 3: `docs/Cap3_pdqsort_Methods_Results.docx`.
+
+---
+
+## 6. Lệnh chạy lại một cấu hình của mỗi RQ (dưới 60 giây)
+
+Theo yêu cầu Mục 8 của Quy định chung, các lệnh chạy lại trực tiếp trên Terminal ngoài IDE:
+
+### A. Chạy lại cấu hình RQ1 (Heap Sort, D1, N = 1.000.000)
+```bash
+java -cp target/classes csd201.sort.BenchmarkRunner --algo heap --data D1 --n 1000000 --seed 1 --out results/recheck_rq1.csv
+```
+
+### B. Chạy lại cấu hình RQ2 (Radix Sort, D3, N = 1.000.000)
+```bash
+java -cp target/classes csd201.sort.BenchmarkRunner --algo radix --data D3 --n 1000000 --seed 1 --out results/recheck_rq2.csv
+```
+
+### C. Chạy lại cấu hình RQ3 (pdqsort, D5 K=2, N = 1.000.000)
+```bash
+java -cp target/classes csd201.sort.BenchmarkRunner --algo pdq --data D5 --k 2 --n 1000000 --seed 1 --out results/recheck_rq3.csv
+```
+
+### D. Tái tạo toàn bộ 4 hình biểu đồ (Mục 7.5 và Tiêu chí 2)
+```bash
+python plot_figures.py
+```
+
