@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
 
@@ -21,7 +22,7 @@ import java.util.function.ToLongFunction;
  * "Quy định chung đồ án nhóm CSD201 FA26" (Mã đề 261014).
  *
  * Tham số dòng lệnh hỗ trợ:
- *   --algo quick|merge|heap|radix|lib|lib-Arrays.sort
+ *   --algo quick|merge|heap|radix|pdq|lib|lib-Arrays.sort
  *   --data D1..D5
  *   --n 1000000
  *   --seed 1
@@ -32,6 +33,7 @@ import java.util.function.ToLongFunction;
  *   --xmx 2g|8g
  *   --machine_id <id>
  *   --git_commit <commit>
+ *   --timeout <giây>
  *   --out results/benchmark.csv
  *   --count (chỉ chạy lượt đếm thao tác, để trống elapsed_ms)
  *   --timing-only (chỉ chạy lượt đo thời gian, để trống ops_count)
@@ -58,9 +60,13 @@ public class BenchmarkRunner {
         REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
         REGISTRY.put("heap", new Algo(HeapSort::sort, HeapSort::sortWithCount));
         REGISTRY.put("radix", new Algo(RadixSort::sort, RadixSort::sortWithCount));
+        REGISTRY.put("pdq", new Algo(PdqSort::sort, PdqSort::sortWithCount));
         REGISTRY.put("lib-Arrays.sort", new Algo(Arrays::sort, null));
         REGISTRY.put("lib", REGISTRY.get("lib-Arrays.sort")); // alias
     }
+
+    // Giới hạn thời gian cho mỗi lượt chạy (mili giây). Mặc định 60 giây (theo Mục 6.1).
+    private static long timeoutMs = 60_000;
 
     public static void main(String[] args) {
         Map<String, String> o = parse(args);
@@ -77,6 +83,10 @@ public class BenchmarkRunner {
         String machineId = o.getOrDefault("machine_id", detectMachineId());
         String gitCommit = o.getOrDefault("git_commit", "git");
         File csvFile = new File(o.getOrDefault("out", "results/benchmark.csv"));
+
+        if (o.containsKey("timeout")) {
+            timeoutMs = Long.parseLong(o.get("timeout")) * 1000L;
+        }
 
         boolean isCountOnly = o.containsKey("count");
         boolean isTimingOnly = o.containsKey("timing-only");
@@ -99,6 +109,34 @@ public class BenchmarkRunner {
         } catch (IOException e) {
             System.err.println("Loi ghi file CSV: " + e.getMessage());
         }
+    }
+
+    private static boolean runWithTimeout(Runnable task, long limitMs, AtomicReference<Throwable> error) {
+        Thread worker = new Thread(() -> {
+            try {
+                task.run();
+            } catch (Throwable ex) {
+                error.set(ex);
+            }
+        }, "sort-worker");
+        worker.setDaemon(true);
+        worker.start();
+        try {
+            worker.join(limitMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return !worker.isAlive();
+    }
+
+    private static void rethrow(Throwable ex) {
+        if (ex instanceof Error) {
+            throw (Error) ex;
+        }
+        if (ex instanceof RuntimeException) {
+            throw (RuntimeException) ex;
+        }
+        throw new RuntimeException(ex);
     }
 
     private static void runBenchmark(
@@ -162,26 +200,36 @@ public class BenchmarkRunner {
                 resetHeapPeaks();
                 long heapBefore = heapBytes(false);
 
-                // Mục 6.3: Đo thời gian nanoTime bao quanh phần xử lý
-                long start = System.nanoTime();
-                algo.sorter.accept(a);
-                long end = System.nanoTime();
+                // Mục 6.3: Đo thời gian nanoTime bao quanh phần xử lý (có timeout)
+                long[] elapsedNs = new long[1];
+                AtomicReference<Throwable> err = new AtomicReference<>();
+                boolean done = runWithTimeout(() -> {
+                    long start = System.nanoTime();
+                    algo.sorter.accept(a);
+                    elapsedNs[0] = System.nanoTime() - start;
+                }, timeoutMs, err);
 
-                long heapPeak = Math.max(heapBefore, heapBytes(true));
-                double elapsedMs = (end - start) / 1_000_000.0;
-                elapsedMsStr = String.format(java.util.Locale.US, "%.4f", elapsedMs);
-                heapBeforeStr = Long.toString(heapBefore);
-                heapPeakStr = Long.toString(heapPeak);
+                if (!done) {
+                    status = "timeout";
+                } else {
+                    if (err.get() != null) {
+                        rethrow(err.get());
+                    }
+                    long heapPeak = Math.max(heapBefore, heapBytes(true));
+                    double elapsedMs = elapsedNs[0] / 1_000_000.0;
+                    elapsedMsStr = String.format(java.util.Locale.US, "%.4f", elapsedMs);
+                    heapBeforeStr = Long.toString(heapBefore);
+                    heapPeakStr = Long.toString(heapPeak);
 
-                // Mục 6.3 & Bảng 4: Tính mã băm h = 31 * h + a[i]
-                long h = hash(a);
-                outputCheck = Long.toString(h);
+                    // Mục 6.3 & Bảng 4: Tính mã băm h = 31 * h + a[i]
+                    long h = hash(a);
+                    outputCheck = Long.toString(h);
 
-                // Kiểm tra tính đúng đắn với Oracle
-                if (h != refHash || !isSorted(a)) {
-                    status = "wrong";
+                    // Kiểm tra tính đúng đắn với Oracle
+                    if (h != refHash || !isSorted(a)) {
+                        status = "wrong";
+                    }
                 }
-                a = null;
             } catch (OutOfMemoryError e) {
                 status = "oom";
             } catch (Throwable t) {
@@ -213,28 +261,48 @@ public class BenchmarkRunner {
 
             try {
                 int[] b = original.clone();
-                long rawCount = algo.counter.applyAsLong(b);
+                AtomicReference<Throwable> errCount = new AtomicReference<>();
+                long[] rawCount = new long[1];
+                boolean doneCount = runWithTimeout(() -> {
+                    rawCount[0] = algo.counter.applyAsLong(b);
+                }, timeoutMs, errCount);
 
-                if ("quick".equals(rawAlgoName)) {
-                    int depth = QuickSort.unpackDepth(rawCount);
-                    long ops = QuickSort.unpackComparisons(rawCount);
-                    maxDepthStr = Integer.toString(depth);
-                    opsCountStr = Long.toString(ops);
-                } else if ("merge".equals(rawAlgoName)) {
-                    int depth = MergeSort.unpackDepth(rawCount);
-                    long ops = MergeSort.unpackComparisons(rawCount);
-                    maxDepthStr = Integer.toString(depth);
-                    opsCountStr = Long.toString(ops);
+                if (!doneCount) {
+                    status = "timeout";
                 } else {
-                    opsCountStr = Long.toString(rawCount);
-                }
+                    if (errCount.get() != null) {
+                        rethrow(errCount.get());
+                    }
+                    long raw = rawCount[0];
+                    long opsCount;
+                    int maxDepth = -1;
 
-                long h = hash(b);
-                outputCheck = Long.toString(h);
-                if (h != refHash || !isSorted(b)) {
-                    status = "wrong";
+                    // Giải mã kết quả đóng gói:
+                    // QuickSort, MergeSort và PdqSort đóng gói: 32 bit cao là max_depth, 32 bit thấp là comparisons
+                    if ("quick".equals(algoName)) {
+                        maxDepth = QuickSort.unpackDepth(raw);
+                        opsCount = QuickSort.unpackComparisons(raw);
+                    } else if ("merge".equals(algoName)) {
+                        maxDepth = MergeSort.unpackDepth(raw);
+                        opsCount = MergeSort.unpackComparisons(raw);
+                    } else if ("pdq".equals(algoName)) {
+                        maxDepth = PdqSort.unpackDepth(raw);
+                        opsCount = PdqSort.unpackComparisons(raw);
+                    } else {
+                        opsCount = raw;
+                    }
+
+                    opsCountStr = Long.toString(opsCount);
+                    if (maxDepth >= 0) {
+                        maxDepthStr = Integer.toString(maxDepth);
+                    }
+
+                    long h = hash(b);
+                    outputCheck = Long.toString(h);
+                    if (h != refHash || !isSorted(b)) {
+                        status = "wrong";
+                    }
                 }
-                b = null;
             } catch (OutOfMemoryError e) {
                 status = "oom";
             } catch (Throwable t) {
