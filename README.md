@@ -2,17 +2,6 @@
 
 Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực nghiệm thuật toán sắp xếp khóa số nguyên quy mô lớn (`int[]`).
 
-## Tổng quan tiến độ
-
-| Người | Phần việc | Lớp | Trạng thái |
-|---|---|---|---|
-| Người 1 – Cặp 1 | Quick Sort | `QuickSort` | Xong |
-| Người 2 – Cặp 1 | Merge Sort, bộ sinh dữ liệu D1–D5 | `MergeSort`, `DataGenerator` | Xong |
-| Người 3 – Cặp 2 | Heap Sort (kèm `sortRange` cho pdqsort), Radix Sort | `HeapSort`, `RadixSort` | Xong |
-| Người 4 – Cặp 2 | Bộ đo và runner, script chạy RQ1/RQ2 | `BenchmarkRunner`, `CsvWriter`, `run_rq*.ps1` | Xong |
-| Người 5 – Cặp 3 | pdqsort lõi | `PdqSort`, `PdqEvidence` | Xong |
-| Người 6 – Cặp 3 | Cơ chế A, B, biến thể noA/noB, bộ kiểm thử | `PdqSort` (chỗ `[NGƯỜI 6]`) | Chưa làm |
-
 ---
 
 ## 1. Trạng thái module: Người 3 – Cặp 2 (Heap Sort & Radix Sort)
@@ -148,7 +137,17 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 
 ---
 
-## 4. Trạng thái module: Người 5 – Cặp 3 (pdqsort lõi)
+## 4. Hướng dẫn chạy kiểm thử
+
+Yêu cầu: JDK 17+ và Maven.
+
+```bash
+mvn clean test
+```
+
+---
+
+## 5. Trạng thái module: Người 5 – Cặp 3 (pdqsort lõi)
 
 Đã hoàn thành phần lõi của pdqsort và kiểm thử (9/9 tests `PdqSortTest`, tổng 34/34 tests toàn dự án). Đã đăng ký `pdq` trong `BenchmarkRunner`.
 
@@ -183,28 +182,3 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 - `java -cp target/classes csd201.sort.PdqEvidence ablation` → `results/pdq_ablation.csv`: tắt lần lượt ninther, phá mẫu, Heap Sort dự phòng (N = 10^5).
 - `java -Xmx3g -cp target/classes csd201.sort.PdqEvidence count` → `results/pdq_count.csv`: lượt --count trên D1–D5, N = 10^6 và 10^7.
 - Tài liệu Methods/Results của cặp 3: `docs/Cap3_pdqsort_Methods_Results.docx`.
-
----
-
-## 5. Hướng dẫn chạy
-
-Yêu cầu: JDK 17+ và Maven.
-
-### A. Kiểm thử
-
-```bash
-mvn clean test
-```
-
-Hiện tại: 34/34 tests pass (DataGenerator 8, HeapSort 6, MergeSort 6, PdqSort 9, RadixSort 5).
-
-### B. Chạy một lượt benchmark
-
-```bash
-mvn compile
-java -Xmx8g -cp target/classes csd201.sort.BenchmarkRunner --algo pdq --data D1 --n 1000000 --seed 1 --out results/benchmark.csv
-```
-
-- `--algo`: `quick`, `merge`, `heap`, `radix`, `pdq`, `lib` (bỏ trống thì chạy tất cả).
-- `--data`: `D1`–`D5`; với D5 truyền thêm `--k 1000`, `--k 10` hoặc `--k 2`.
-- Chạy hàng loạt: `run_rq1.ps1`, `run_rq2.ps1` (mỗi tổ hợp một JVM riêng).
