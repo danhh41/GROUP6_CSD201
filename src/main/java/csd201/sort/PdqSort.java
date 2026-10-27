@@ -383,7 +383,21 @@ public final class PdqSort {
      * <= pivot sang trái, > pivot sang phải; trả về vị trí cuối cùng của pivot.
      */
     private int partitionLeft(int begin, int end) {
-        throw new UnsupportedOperationException("Cơ chế B: Người 6 cài đặt partitionLeft");
+        int pivot = a[begin];
+        int i = begin + 1;
+        int j = end - 1;
+        while (i <= j) {
+            if (!less(pivot, a[i])) { // a[i] <= pivot
+                i++;
+            } else {
+                swap(i, j);
+                j--;
+            }
+        }
+        int pivotPos = i - 1;
+        a[begin] = a[pivotPos];
+        a[pivotPos] = pivot;
+        return pivotPos;
     }
 
     /*
@@ -392,7 +406,21 @@ public final class PdqSort {
      * PARTIAL_INSERTION_SORT_LIMIT; trả về true nếu sắp xong đoạn.
      */
     private boolean partialInsertionSort(int begin, int end) {
-        throw new UnsupportedOperationException("Cơ chế A: Người 6 cài đặt partialInsertionSort");
+        int moves = 0;
+        for (int cur = begin + 1; cur < end; cur++) {
+            int value = a[cur];
+            int j = cur;
+            while (j > begin && less(value, a[j - 1])) {
+                a[j] = a[j - 1];
+                j--;
+                moves++;
+            }
+            a[j] = value; // luôn khôi phục giá trị, kể cả khi vượt giới hạn
+            if (moves > PARTIAL_INSERTION_SORT_LIMIT) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // =========================================================================
