@@ -11,16 +11,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Tham số: --algo heap|radix|lib  --data D1..D5  --n 1000000  --seed 1
- *          --k 1000  --variant default  --out results/benchmark.csv
- * Không truyền --algo thì chạy tất cả thuật toán đã đăng ký.
- * Khi chạy hàng loạt, mỗi tổ hợp nên là một tiến trình JVM riêng (truyền --algo).
+ * Tham số: --algo heap|radix|lib --data D1..D5 --n 1000000 --seed 1 --k 1000
+ * --variant default --out results/benchmark.csv Không truyền --algo thì chạy
+ * tất cả thuật toán đã đăng ký. Khi chạy hàng loạt, mỗi tổ hợp nên là một tiến
+ * trình JVM riêng (truyền --algo).
  */
 public class BenchmarkRunner {
 
     private static final class Algo {
+
         final Consumer<int[]> sorter;
         final ToLongFunction<int[]> counter; // null nếu không có
 
@@ -52,15 +54,19 @@ public class BenchmarkRunner {
         int k = Integer.parseInt(o.getOrDefault("k", "1000"));
         String variant = o.getOrDefault("variant", "default");
         File csvFile = new File(o.getOrDefault("out", "results/benchmark.csv"));
+        boolean countOnly = Boolean.parseBoolean(
+                o.getOrDefault("count", "false")
+        );
+        timeoutMs = Long.parseLong(o.getOrDefault("timeout", "600")) * 1000;
 
         try {
             CsvWriter.ensureHeader(csvFile);
 
             if (algo != null) {
-                runOne(algo, data, n, seed, k, variant, csvFile);
+                runOne(algo, data, n, seed, k, variant, csvFile, countOnly);
             } else {
                 for (String name : REGISTRY.keySet()) {
-                    runOne(name, data, n, seed, k, variant, csvFile);
+                    runOne(name, data, n, seed, k, variant, csvFile, countOnly);
                 }
             }
 
@@ -69,10 +75,49 @@ public class BenchmarkRunner {
             System.out.println("Loi ghi CSV: " + e.getMessage());
         }
     }
+    // Giới hạn thời gian cho mỗi lượt chạy. 600 giây là số mình tạm đặt,
+// hãy đổi theo quy định chung khi có.
+    private static long timeoutMs = 600_000;
+
+    /**
+     * Chạy task trong luồng riêng. Trả về true nếu xong kịp, false nếu quá hạn.
+     */
+    private static boolean runWithTimeout(Runnable task, long limitMs,
+            AtomicReference<Throwable> error) {
+        Thread worker = new Thread(() -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                error.set(t);
+            }
+        }, "sort-worker");
+        worker.setDaemon(true);
+        worker.start();
+        try {
+            worker.join(limitMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return !worker.isAlive();
+    }
+
+    /**
+     * Ném lại lỗi bắt được từ luồng phụ để catch cũ (oom/crash) xử lý như
+     * trước.
+     */
+    private static void rethrow(Throwable t) {
+        if (t instanceof Error) {
+            throw (Error) t;
+        }
+        if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+        }
+        throw new RuntimeException(t);
+    }
 
     private static void runOne(String name, String data, int n, long seed,
-                               int k, String variant, File csvFile)
-            throws IOException {
+            int k, String variant, File csvFile,
+            boolean countOnly) throws IOException {
 
         String status = "true";
         double elapsedMs = -1;
@@ -81,57 +126,94 @@ public class BenchmarkRunner {
         String outputCheck = "";
         long operationCount = -1;
         int maxDepth = -1;
+        boolean timedOut = false;
 
         try {
             Algo algo = REGISTRY.get(name);
             if (algo == null) {
-                throw new IllegalArgumentException("algo chua dang ky: " + name);
+                throw new IllegalArgumentException(
+                        "algo chua dang ky: " + name);
             }
 
             int[] a = DataGenerator.generate(data, n, seed, k);
+            AtomicReference<Throwable> err = new AtomicReference<>();
 
-            // Ngoài vùng đo: băm chuẩn từ Arrays.sort, rồi giải phóng bản chuẩn
-            int[] ref = a.clone();
-            Arrays.sort(ref);
-            long refHash = hash(ref);
-            ref = null;
-
-            // ---- Lượt đo thời gian (không đếm gì) ----
-            System.gc();
-            heapBefore = usedMemory();
-            resetPeaks();
-
-            long start = System.nanoTime();
-            algo.sorter.accept(a);
-            long end = System.nanoTime();
-
-            heapPeak = Math.max(heapBefore, readPeaks());
-            elapsedMs = (end - start) / 1_000_000.0;
-
-            long h = hash(a);
-            outputCheck = Long.toString(h);
-            if (h != refHash || !isSorted(a)) {
-                status = "false";
-            }
-
-            // ---- Lượt --count: chạy riêng, sau khi đã đo xong ----
-            if (algo.counter != null) {
-                a = null;
-                int[] b = DataGenerator.generate(data, n, seed, k);
-                long rawCount = algo.counter.applyAsLong(b);
-                if ("quick".equals(name)) {
-                    maxDepth = QuickSort.unpackDepth(rawCount);
-                    operationCount = QuickSort.unpackComparisons(rawCount);
-                } else if ("merge".equals(name)) {
-                    maxDepth = MergeSort.unpackDepth(rawCount);
-                    operationCount = MergeSort.unpackComparisons(rawCount);
+            if (countOnly) {
+                // Chi dem thao tac, khong do thoi gian
+                if (algo.counter == null) {
+                    status = "unsupported_count";
                 } else {
-                    operationCount = rawCount;
+                    // Tao ket qua chuan TRUOC khi dem, vi bo dem sap xep a tai cho
+                    int[] expected = a.clone();
+                    Arrays.sort(expected);
+
+                    long[] raw = new long[1];
+                    boolean done = runWithTimeout(() -> {
+                        raw[0] = algo.counter.applyAsLong(a);
+                    }, timeoutMs, err);
+
+                    if (!done) {
+                        status = "timeout";
+                        timedOut = true;
+                    } else {
+                        if (err.get() != null) {
+                            rethrow(err.get());
+                        }
+                        long rawCount = raw[0];
+
+                        if ("quick".equals(name)) {
+                            maxDepth = QuickSort.unpackDepth(rawCount);
+                            operationCount = QuickSort.unpackComparisons(rawCount);
+                        } else if ("merge".equals(name)) {
+                            maxDepth = MergeSort.unpackDepth(rawCount);
+                            operationCount = MergeSort.unpackComparisons(rawCount);
+                        } else {
+                            operationCount = rawCount;
+                        }
+
+                        outputCheck = Long.toString(hash(a));
+
+                        if (!Arrays.equals(a, expected)) {
+                            status = "false";
+                        }
+                    }
                 }
-                if (hash(b) != refHash || !isSorted(b)) {
-                    status = "false";
+            } else {
+                // Chi do thoi gian, khong chay bo dem thao tac
+                System.gc();
+                heapBefore = usedMemory();
+                resetPeaks();
+
+                long[] elapsedNs = new long[1];
+                boolean done = runWithTimeout(() -> {
+                    long start = System.nanoTime();
+                    algo.sorter.accept(a);
+                    elapsedNs[0] = System.nanoTime() - start;
+                }, timeoutMs, err);
+
+                if (!done) {
+                    status = "timeout";
+                    timedOut = true;
+                    heapBefore = -1;      // so do bo nho khong con y nghia
+                } else {
+                    if (err.get() != null) {
+                        rethrow(err.get());
+                    }
+                    elapsedMs = elapsedNs[0] / 1_000_000.0;
+                    heapPeak = Math.max(heapBefore, readPeaks());
+
+                    // Kiem tra ket qua ngoai vung do thoi gian
+                    int[] expected = DataGenerator.generate(data, n, seed, k);
+                    Arrays.sort(expected);
+
+                    outputCheck = Long.toString(hash(a));
+
+                    if (!Arrays.equals(a, expected)) {
+                        status = "false";
+                    }
                 }
             }
+
         } catch (OutOfMemoryError e) {
             status = "oom";
         } catch (Throwable t) {
@@ -141,16 +223,21 @@ public class BenchmarkRunner {
 
         CsvWriter.appendRow(
                 csvFile, name, data, n, seed, k,
-                elapsedMs,
-                heapBefore, heapPeak,
-                maxDepth,
-                variant,
-                outputCheck,
-                operationCount,
-                status
+                elapsedMs, heapBefore, heapPeak,
+                maxDepth, variant, outputCheck,
+                operationCount, status
         );
 
-        System.out.println(name + " " + data + " n=" + n + ": " + status);
+        System.out.println(
+                name + " " + data + " n=" + n
+                + (countOnly ? " [COUNT]" : " [TIMING]")
+                + ": " + status);
+
+        if (timedOut) {
+            System.out.println("Qua han " + (timeoutMs / 1000)
+                    + " giay, thoat JVM de dung luong sap xep.");
+            Runtime.getRuntime().halt(0);
+        }
     }
 
     // h = 31*h + a[i], kiểu long, cho phép tràn
@@ -197,7 +284,9 @@ public class BenchmarkRunner {
     private static Map<String, String> parse(String[] args) {
         Map<String, String> m = new HashMap<>();
         for (int i = 0; i < args.length; i++) {
-            if (args[i].startsWith("--") && i + 1 < args.length) {
+            if (args[i].equals("--count")) {
+                m.put("count", "true");          // cờ, không có giá trị đi kèm
+            } else if (args[i].startsWith("--") && i + 1 < args.length) {
                 m.put(args[i].substring(2), args[++i]);
             }
         }
