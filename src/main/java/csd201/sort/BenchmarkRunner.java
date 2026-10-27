@@ -39,7 +39,7 @@ public class BenchmarkRunner {
         REGISTRY.put("lib", new Algo(Arrays::sort, null));
         REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
         REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
-        // REGISTRY.put("pdq",   new Algo(PdqSort::sort,   PdqSort::sortWithCount));
+        REGISTRY.put("pdq", new Algo(PdqSort::sort, PdqSort::sortWithCount));
     }
 
     public static void main(String[] args) {
@@ -125,6 +125,9 @@ public class BenchmarkRunner {
                 } else if ("merge".equals(name)) {
                     maxDepth = MergeSort.unpackDepth(rawCount);
                     operationCount = MergeSort.unpackComparisons(rawCount);
+                } else if ("pdq".equals(name)) {
+                    maxDepth = PdqSort.unpackDepth(rawCount);
+                    operationCount = PdqSort.unpackComparisons(rawCount);
                 } else {
                     operationCount = rawCount;
                 }
