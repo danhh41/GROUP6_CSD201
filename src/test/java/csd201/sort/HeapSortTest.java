@@ -29,7 +29,7 @@ public class HeapSortTest {
         assertSortCorrect(new int[]{50, 100});
         assertSortCorrect(new int[]{7, 7, 7, 7});
 
-        int[] boundaryValues = new int[]{0, 255, 256, 65535, Integer.MAX_VALUE, 1, 1024};
+        int[] boundaryValues = new int[]{0, 255, 256, 65535, Integer.MAX_VALUE, 1, 1024};  // các mốc chuyển giao 1 bit 2 bit 
         assertSortCorrect(boundaryValues);
     }
 
