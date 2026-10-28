@@ -109,12 +109,12 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 
 ---
 
-## 3. Trạng thái module: Người 1 – Cặp 1 (Quick Sort)
+## 3. Trạng thái module: Người 1 – Cặp 1 (Quick Sort & Killer Adversary)
 
-Đã hoàn thành cài đặt thuật toán Quick Sort.
+Đã hoàn thành cài đặt thuật toán Quick Sort và bộ kiểm thử đối kháng (8/8 tests `QuickSortTest` pass, tổng 42/42 tests toàn dự án).
 
 ### A. Quick Sort (`csd201.sort.QuickSort`)
-- **Thuật toán:** Phân hoạch Hoare hai đầu, pivot là trung vị của 3 (median-of-three: `lo`, `mid`, `hi`), đệ quy hai phía.
+- **Thuật toán:** Phân hoạch Hoare hai đầu, pivot là trung vị của 3 (median-of-three: `lo`, `mid`, `hi`), đệ quy hai phía, không dùng Lomuto hay Insertion Sort.
 - **Tên trong CSV:** `quick`
 - **Chữ ký hàm:**
   ```java
@@ -134,6 +134,13 @@ Dự án môn **CSD201 FA26** (Mã đề: `261014`) — Nghiên cứu & thực n
 - **Quy ước đếm:**
   - `comparisons`: Đếm phép so sánh khi chọn pivot median-of-three và so sánh trong phân hoạch Hoare.
   - `max_depth`: Đo độ sâu đệ quy lớn nhất.
+
+### B. Kiểm thử & Dữ liệu đối kháng (`QuickSortTest` & `DataGenerator.generateKillerAdversary`)
+- **Bộ kiểm thử `QuickSortTest`:** 8 nhóm bài test gồm 5 ca cố định theo Mục 5, mảng rỗng, 1 phần tử, 2 phần tử, mảng $10^5$ phần tử (toàn bằng nhau, tăng dần, giảm dần), 1.000 mảng ngẫu nhiên $0..100$ thuộc D1–D5.
+- **Ca kiểm thử đối kháng (Killer Adversary theo McIlroy 1999 & Musser 1997):**
+  - Sinh hoán vị đánh lừa median-of-three và phân hoạch Hoare.
+  - Tại $N = 2.000$: QuickSort thoái hóa về số phép so sánh $1.011.992 \approx O(N^2)$ và độ sâu đệ quy $1.000 = N/2$.
+  - Đối chứng: `pdqsort` trên cùng dữ liệu chỉ tốn $24.047$ phép so sánh ($O(N \log N)$) và độ sâu $9$ nhờ cơ chế chống trường hợp xấu.
 
 ---
 
