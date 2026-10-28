@@ -19,7 +19,7 @@ public final class RadixSort {
             return;
         }
 
-        int[] aux = new int[n];
+        int[] aux = new int[n]; // CẤP PHÁT MẢNG PHỤ CÓ KÍCH THƯỚC ĐÚNG BẰNG N!
         int[] count = new int[RADIX + 1];
 
         int[] src = a;
@@ -50,6 +50,13 @@ public final class RadixSort {
             src = dst;
             dst = tmp;
         }
+        
+        //for (int i = 0, j = a.length - 1; i < j; i++, j--) {
+         //   int temp = a[i];
+         //   a[i] = a[j];
+          //  a[j] = temp;
+      //  }
+
     }
 
     public static long sortWithCount(int[] a) {
