@@ -325,10 +325,134 @@ public final class DataGenerator {
             case "D5-2":
             case "D5_2":
                 return generateD5(n, seed, K_2);
+            case "KILLER":
+            case "MCILROY":
+                return generateKillerAdversary(n);
+            case "MUSSER":
+                return generateMusserKiller(n);
             default:
                 throw new IllegalArgumentException("Họ dữ liệu không hợp lệ: '" + data + 
-                        "'. Hỗ trợ: D1, D2, D3, D4, D5 (hoặc D5-1000, D5-10, D5-2)");
+                        "'. Hỗ trợ: D1, D2, D3, D4, D5 (hoặc D5-1000, D5-10, D5-2), KILLER");
         }
+    }
+
+    /**
+     * Dữ liệu đối kháng phá Quick Sort theo phương pháp "killer adversary" của M. D. McIlroy (1999).
+     * <p>
+     * Trực tiếp đánh lừa phân hoạch Hoare và pivot median-of-three, ép Quick Sort rơi vào
+     * trường hợp xấu nhất: độ sâu đệ quy tăng vọt tới N/2 và số phép so sánh vọt lên ~ N^2 / 4.
+     * </p>
+     *
+     * @param n kích thước mảng (N >= 0)
+     * @return mảng int[] chứa hoán vị sát thủ McIlroy
+     * @throws IllegalArgumentException nếu n < 0
+     */
+    public static int[] generateKillerAdversary(int n) {
+        validateSize(n);
+        if (n <= 1) {
+            return new int[n];
+        }
+        int gas = n - 1;
+        int[] val = new int[n];
+        Arrays.fill(val, gas);
+        int[] state = {0, 0}; // state[0] = nsolid, state[1] = candidate
+
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) {
+            a[i] = i;
+        }
+
+        simulateHoareQuickSort(a, 0, n - 1, val, gas, state);
+
+        for (int i = 0; i < n; i++) {
+            if (val[i] == gas) {
+                val[i] = state[0]++;
+            }
+        }
+        return val;
+    }
+
+    private static boolean adversaryLess(int x, int y, int[] val, int gas, int[] state) {
+        if (val[x] == gas && val[y] == gas) {
+            if (x == state[1]) {
+                val[x] = state[0]++;
+            } else {
+                val[y] = state[0]++;
+            }
+        }
+        if (val[x] == gas) {
+            state[1] = x;
+        } else if (val[y] == gas) {
+            state[1] = y;
+        }
+        return val[x] < val[y];
+    }
+
+    private static void simulateHoareQuickSort(int[] a, int lo, int hi, int[] val, int gas, int[] state) {
+        if (lo >= hi) {
+            return;
+        }
+        int mid = lo + ((hi - lo) >>> 1);
+        if (adversaryLess(a[mid], a[lo], val, gas, state)) {
+            int t = a[lo]; a[lo] = a[mid]; a[mid] = t;
+        }
+        if (adversaryLess(a[hi], a[lo], val, gas, state)) {
+            int t = a[lo]; a[lo] = a[hi]; a[hi] = t;
+        }
+        if (adversaryLess(a[hi], a[mid], val, gas, state)) {
+            int t = a[mid]; a[mid] = a[hi]; a[hi] = t;
+        }
+
+        int pivot = a[mid];
+        int i = lo - 1;
+        int j = hi + 1;
+
+        while (true) {
+            do { i++; } while (adversaryLess(a[i], pivot, val, gas, state));
+            do { j--; } while (adversaryLess(pivot, a[j], val, gas, state));
+
+            if (i >= j) {
+                break;
+            }
+            int t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+
+        simulateHoareQuickSort(a, lo, j, val, gas, state);
+        simulateHoareQuickSort(a, j + 1, hi, val, gas, state);
+    }
+
+    /**
+     * Dữ liệu đối kháng phá Quick Sort tĩnh theo Musser (1997).
+     *
+     * @param n kích thước mảng (N >= 0)
+     * @return mảng int[] chứa dãy hoán vị đối kháng Musser
+     * @throws IllegalArgumentException nếu n < 0
+     */
+    public static int[] generateMusserKiller(int n) {
+        validateSize(n);
+        if (n <= 1) {
+            return new int[n];
+        }
+        int[] a = new int[n];
+        int k = n / 2;
+        for (int i = 1; i <= k; i++) {
+            if ((i & 1) != 0) {
+                a[i - 1] = i;
+            } else {
+                a[i - 1] = k + i - 1;
+            }
+        }
+        int idx = k;
+        for (int i = 1; i <= n; i++) {
+            if ((i & 1) == 0 && idx < n) {
+                a[idx++] = i;
+            }
+        }
+        while (idx < n) {
+            a[idx] = n;
+            idx++;
+        }
+        return a;
     }
 
     private static void validateSize(int n) {
