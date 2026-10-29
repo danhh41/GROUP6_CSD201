@@ -426,7 +426,9 @@ public final class PdqSort {
             }
         }
 
-        int pivotPos = first - 1;
+        // Theo bản gốc của Peters (partition_left): pivot về vị trí last.
+        // Mọi phần tử trong [begin, last] <= pivot, mọi phần tử sau last > pivot.
+        int pivotPos = last;
         a[begin] = a[pivotPos];
         a[pivotPos] = pivot;
         return pivotPos;
@@ -448,11 +450,14 @@ public final class PdqSort {
             while (sift > begin && less(tmp, a[sift - 1])) {
                 a[sift] = a[sift - 1];
                 sift--;
-                if (++limit > PARTIAL_INSERTION_SORT_LIMIT) {
-                    return false;
-                }
             }
+            // Đặt tmp về chỗ TRƯỚC khi kiểm tra giới hạn: nếu thoát giữa vòng dịch
+            // thì tmp bị mất và mảng có một phần tử bị nhân đôi (lỗi bản trước).
             a[sift] = tmp;
+            limit += cur - sift;
+            if (limit > PARTIAL_INSERTION_SORT_LIMIT) {
+                return false;
+            }
         }
         return true;
     }

@@ -18,6 +18,8 @@
 \usepackage{tabularx}
 \usepackage{microtype}
 \usepackage{hyperref}
+% Con số phần pdqsort/RQ3: sinh bởi plot_rq3.py từ results/rq3.csv (không sửa tay)
+\input{rq3_numbers}
 
 \hypersetup{
     colorlinks=true,
@@ -155,16 +157,42 @@ Hàm này sắp xếp đoạn nửa mở $[lo, hi)$ mà không tác động đ�
 Radix Sort xử lý đúng 4 lượt ứng với 4 byte của số nguyên không âm ($0 \le x \le 2^{31}-1$). Nhóm tối ưu hóa bộ nhớ phụ bằng cách chỉ cấp phát \textbf{duy nhất 1 mảng phụ} \texttt{aux} kích thước $N$ và 1 mảng đếm 256 phần tử. Nhờ số lượt chẵn ($4$ lượt), dữ liệu được tráo đổi luân phiên giữa \texttt{a} và \texttt{aux}, tự động kết thúc chính xác tại mảng gốc mà không tốn thao tác sao chép dư thừa.
 
 \subsection{Cài đặt pdqsort và Các Biến thể Triệt tiêu (Cặp 3)}
-pdqsort hiện thực đầy đủ thiết kế của Peters \cite{peters2021pdqsort}:
-\begin{itemize}
-    \item Ngưỡng cơ sở: Đoạn dưới 24 phần tử sắp xếp bằng Insertion Sort (sử dụng bản không kiểm tra biên \texttt{unguardedInsertionSort} cho các đoạn bên trong).
-    \item Chọn pivot: Trung vị của 3 cho đoạn $\le 128$; đoạn trên 128 phần tử dùng Ninther của Tukey (trung vị của 3 trung vị).
-    \item Phân hoạch phải (\texttt{partitionRight}): Đưa phần tử $<$ pivot sang trái, $\ge$ pivot sang phải; trả về cờ \texttt{alreadyPartitioned} nếu không phải tráo đổi phần tử nào.
-    \item \textbf{Cơ chế A (Phát hiện đoạn đã sắp):} Khi phân hoạch cân bằng và đã phân hoạch sẵn, thực hiện Partial Insertion Sort trên cả hai nửa với giới hạn dịch tối đa 8 lần.
-    \item \textbf{Cơ chế B (Gom khóa trùng):} Khi pivot bằng phần tử đứng liền trước đoạn, sử dụng phân hoạch trái (\texttt{partitionLeft}) gom toàn bộ khóa trùng sang trái rồi bỏ qua.
-    \item \textbf{Chống suy thoái:} Đếm phân hoạch lệch (khi một nửa $< size/8$), hoán đổi phá mẫu (\texttt{breakPatterns}); nếu số lần lệch vượt $\lfloor \log_2 N \rfloor$ thì lập tức chuyển đoạn đó sang \texttt{HeapSort.sortRange}.
-\end{itemize}
-Hai biến thể triệt tiêu \texttt{noA} và \texttt{noB} được kích hoạt độc lập qua tham số dòng lệnh \texttt{--variant}.
+pdqsort được cài theo mô tả và mã tham chiếu của Peters \cite{peters2021pdqsort} trong lớp \texttt{PdqSort}, trên mảng \texttt{int[]}, đoạn nửa mở $[lo, hi)$. Bảng~\ref{tab:pdqmap} ánh xạ từng cơ chế tới hàm trong mã nguồn; hai cơ chế A, B được bật/tắt bằng \texttt{--variant} của \texttt{BenchmarkRunner} (\texttt{base} = cả hai, \texttt{noA}, \texttt{noB}).
+
+\begin{table}[htbp]
+\caption{Ánh xạ cơ chế của pdqsort tới hàm trong \texttt{src/main/java/csd201/sort/PdqSort.java}}
+\label{tab:pdqmap}
+\centering
+\footnotesize
+\begin{tabular}{p{0.38\columnwidth}p{0.36\columnwidth}l}
+\toprule
+\textbf{Cơ chế} & \textbf{Hàm} & \textbf{Tắt} \\
+\midrule
+Insertion Sort cho đoạn $< 24$ & \texttt{insertionSort}, \texttt{unguardedInsertionSort} & -- \\
+Pivot: trung vị của 3; ninther khi $> 128$ & \texttt{loop}, \texttt{sort3} & -- \\
+Phân hoạch phải + cờ ``đã phân hoạch sẵn'' & \texttt{partitionRight} & -- \\
+Chống suy thoái: phá mẫu, chuyển Heap Sort & \texttt{breakPatterns}, \texttt{HeapSort.sortRange} & -- \\
+A: phát hiện đoạn đã sắp & \texttt{partialInsertionSort} & \texttt{noA} \\
+B: gom khóa trùng & \texttt{partitionLeft} & \texttt{noB} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Vòng lặp chính ($\mathit{ready}$: cờ ``đã phân hoạch sẵn''):
+\begin{algorithmic}[1]
+\WHILE{$size \ge 24$}
+\STATE chọn pivot (trung vị của 3 / ninther), đưa về $a[begin]$
+\IF{B \AND $a[begin-1] \ge pivot$} \STATE $begin \gets$ \texttt{partitionLeft}$+1$; \textbf{continue} \ENDIF
+\STATE $(p, \mathit{ready}) \gets$ \texttt{partitionRight}
+\IF{một nửa $< size/8$} \STATE \textbf{if} $--bad = 0$: Heap Sort, \textbf{return}; \textbf{else} \texttt{breakPatterns}
+\ELSIF{A \AND $\mathit{ready}$ \AND \texttt{partialInsertionSort} hai nửa} \STATE \textbf{return} \ENDIF
+\STATE đệ quy $[begin, p)$; $begin \gets p+1$
+\ENDWHILE
+\STATE Insertion Sort đoạn còn lại
+\end{algorithmic}
+
+\textbf{Độ phức tạp.} Mỗi nhánh có tối đa $bad = \lfloor \log_2 N \rfloor$ phân hoạch lệch; phân hoạch không lệch thu đoạn còn tối đa $7/8$, nên số tầng là $O(\log N)$ và tổng thời gian $O(N \log N)$ trong trường hợp xấu nhất; bộ nhớ phụ là ngăn xếp $O(\log N)$.
+\textbf{Kiểm tra đúng.} \texttt{PdqSortTest} (12 test JUnit) so với \texttt{Arrays.sort} trên 5 ca của đề, hơn 4.000 mảng D1--D5 và mảng $10^5$ đặc biệt, cho cả bốn biến thể. Bộ test này phát hiện hai lỗi trước khi đo: \texttt{partialInsertionSort} thoát giữa vòng dịch làm mất phần tử, và runner không truyền \texttt{--variant} cho pdq.
 
 \subsection{Bộ Sinh Dữ Liệu và Ca Kiểm Thử Đối Kháng Killer Adversary}
 Bộ sinh \texttt{DataGenerator} cung cấp 5 họ dữ liệu chuẩn $D_1 \to D_5$ bằng \texttt{SplittableRandom(seed)}. Đặc biệt, nhóm đã hiện thực thuật toán sinh mảng sát thủ \textbf{Killer Adversary} theo phương pháp của M. D. McIlroy \cite{mcilroy1999killer} và D. R. Musser \cite{musser1997introsort}. Cơ chế này mô phỏng phản ứng của bộ so sánh trực tiếp với phân hoạch Hoare và pivot median-of-three, cố tình gán giá trị làm lệch cực đại mọi bước phân hoạch ($size - 1$ và $1$), ép Quick Sort giáo trình phải chịu $O(N^2)$ so sánh và độ sâu đệ quy tới $N/2$.
@@ -277,64 +305,37 @@ $D_5$ ($K=2$)    & Cực cao (chỉ 2 giá trị) & 95.2 ms & 830.5 ms & 318.3 m
 \label{fig:rq2_ops}
 \end{figure}
 
-\subsection{RQ3: Hiệu năng pdqsort và thí nghiệm triệt tiêu (Ablation Study)}
-Bảng \ref{tab:rq3} đối chiếu pdqsort đầy đủ với hai biến thể triệt tiêu \texttt{noA} (tắt phát hiện đoạn sắp) và \texttt{noB} (tắt gom khóa trùng) tại $N = 10^7$.
+\subsection{RQ3: pdqsort so với Quick Sort và đóng góp của cơ chế A, B}
+Bảng~\ref{tab:rq3} báo thời gian (commit \texttt{\RQcommit}); số so sánh lấy từ lượt \texttt{--count} cùng file.
 
-% BẢNG RQ3 DÙNG TABLE* TRẢI RỘNG 2 CỘT
-\begin{table*}[t]
-\caption{Đóng góp của cơ chế A và B trong pdqsort tại $N = 10^7$ (RQ3)}
-\label{tab:rq3}
-\centering
-\small
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrr@{}}
-\toprule
-\textbf{Họ dữ liệu thử nghiệm} & \textbf{Quick Sort giáo trình} & \textbf{pdqsort đầy đủ} & \textbf{pdqsort (noA)} & \textbf{pdqsort (noB)} \\
-\midrule
-$D_1$ (Ngẫu nhiên đều) & 856.3 ms & 620.4 ms & 622.1 ms & 621.5 ms \\
-$D_2$ (Tăng dần hoàn toàn) & 210.5 ms & \textbf{4.2 ms} & 185.3 ms & 4.3 ms \\
-$D_3$ (Gần tăng dần) & 340.2 ms & \textbf{48.1 ms} & 220.4 ms & 48.5 ms \\
-$D_5$ ($K=10$) & 185.0 ms & \textbf{22.4 ms} & 23.0 ms & 155.6 ms \\
-$D_5$ ($K=2$) & 95.2 ms & \textbf{8.5 ms} & 8.6 ms & 92.1 ms \\
-\bottomrule
-\end{tabular*}
-\end{table*}
+\input{tables/rq3_runtime}
 
-\textbf{Đóng góp của từng cơ chế:}\\
-1) \textbf{Cơ chế A trên $D_2, D_3$:} Trên mảng tăng dần $D_2$, pdqsort bản đầy đủ chỉ mất $4.2$ ms (nhanh gấp 50 lần Quick Sort giáo trình). Khi tắt cơ chế A (\texttt{noA}), thời gian tăng vọt lên $185.3$ ms. Điều này chứng minh Partial Insertion Sort thành công đã đưa độ phức tạp về thẳng $O(N)$.\\
-2) \textbf{Cơ chế B trên $D_5$ ($K=2, 10$):} Trên mảng chỉ có 2 giá trị, pdqsort đầy đủ hoàn thành trong $8.5$ ms. Khi tắt cơ chế B (\texttt{noB}), thời gian tăng lên $92.1$ ms do thuật toán mất khả năng gom khóa trùng và phải liên tục kích hoạt fallback chuyển sang Heap Sort.\\
-3) \textbf{Kiểm tra chéo trên $D_1$:} Đúng như dự đoán lý thuyết của tác giả đề tài, trên $D_1$ cả 3 phiên bản đều ghi nhận thời gian xấp xỉ nhau ($\approx 620$ ms), khẳng định việc cài đặt hoàn toàn chuẩn xác và không gây overhead ngoài ý muốn.
+\textbf{pdqsort so với Quick Sort.} Lấy Quick Sort giáo trình làm mốc (cùng $N$, dữ liệu, máy và \texttt{-Xmx}), tỷ lệ median $t_{quick}/t_{pdq}$ là \RQquickOverPdqDone{} trên $D_1$, \RQquickOverPdqDtwo{} trên $D_2$, \RQquickOverPdqDthree{} trên $D_3$, \RQquickOverPdqDfour{} trên $D_4$, \RQquickOverPdqKten{} trên $D_5$ $K=10$ và \RQquickOverPdqKtwo{} trên $D_5$ $K=2$ (Hình~\ref{fig:rq3runtime}).
+
+\textbf{Cơ chế A.} Trên $D_2$, pdqsort đầy đủ tốn \RQpdqOpsPerNDtwo$\,N$ phép so sánh, còn \texttt{noA} tốn \RQnoAOpsPerNDtwo$\,N$: cơ chế A đưa dãy đã sắp về $O(N)$ so sánh. Tại $N=$\RQbigN, tỷ lệ $t_{noA}/t_{pdq}$ là \RQnoAOverPdqDtwo{} trên $D_2$ và \RQnoAOverPdqDfour{} trên $D_4$ (mốc: pdqsort đầy đủ, cùng $N$, dữ liệu, máy).
+
+\textbf{Cơ chế B.} Trên $D_5$ $K=2$, tỷ lệ $t_{noB}/t_{pdq}$ là \RQnoBOverPdqKtwo{} và trên $K=10$ là \RQnoBOverPdqKten{} (mốc: pdqsort đầy đủ, $N=$\RQbigN); số so sánh của \texttt{noB} là \RQnoBOpsPerNKtwo$\,N$ so với \RQpdqOpsPerNKtwo$\,N$ của bản đầy đủ. Không có B, khóa trùng gây phân hoạch lệch liên tục.
+
+\textbf{Kết quả trái dự đoán: JIT che lợi ích của A ở $N$ nhỏ.} Tại $N=$\RQsmallN, $t_{noA}/t_{pdq}$ trên $D_2$ chỉ là \RQnoAOverPdqDtwoSmall{} dù \texttt{noA} tốn gấp \RQnoAOpsOverPdqDtwoSmall{} lần số so sánh. Runner làm nóng trên $D_1$, nơi \texttt{partialInsertionSort} gần như không được gọi, nên lượt đo $D_2$ chạy đường A ở chế độ thông dịch. Gọi lặp 8 lần trong cùng JVM ($D_2$, $N=10^6$, median lần 5--8), bản đầy đủ tốn \RQjitBaseDtwo{} ms, \texttt{noA} tốn \RQjitNoADtwo{} ms (nguồn: \texttt{\RQjitCsv}, \texttt{PdqEvidence jit}).
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\columnwidth]{fig4_rq3_pdq_ablation.png}
-\caption{Thí nghiệm triệt tiêu bóc tách vai trò của Cơ chế A (\texttt{noA}) và Cơ chế B (\texttt{noB}) trong pdqsort (RQ3).}
-\label{fig:rq3_ablation}
+\includegraphics[width=\columnwidth]{fig4_rq3_runtime.png}
+\caption{Thời gian median (thanh lỗi min--max, thang log) tại $N = 10^7$. Mục đích: so pdqsort với Quick Sort và thấy cơ chế nào có tác dụng trên dữ liệu nào. Nguồn: \texttt{results/rq3.csv} (\texttt{run\_rq3.ps1}); hình: \texttt{plot\_rq3.py}.}
+\label{fig:rq3runtime}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{fig5_pdq_core_ablation.png}
+\caption{Số phép so sánh (thang log) khi tắt từng cơ chế lõi (chưa bật A, B), $N = 10^5$, seed 1. Mục đích: cho thấy mỗi cơ chế lõi đều có tác dụng. Nguồn: \texttt{results/pdq\_ablation.csv} (\texttt{PdqEvidence ablation}); hình: \texttt{plot\_rq3.py}.}
+\label{fig:pdqcore}
 \end{figure}
 
 \subsection{Khảo sát mảng sát thủ (Killer Adversary Analysis)}
-Để kiểm tra giới hạn chịu tải theo Mục 4 của đề tài, nhóm tiến hành thực nghiệm trên mảng hoán vị đối kháng được sinh theo phương pháp của McIlroy \cite{mcilroy1999killer} và Musser \cite{musser1997introsort} nhằm đánh lừa trực diện phân hoạch Hoare và pivot trung vị của 3.
+\input{tables/rq3_killer}
 
-\begin{table}[htbp]
-\caption{Đối chiếu hiệu năng trên mảng sát thủ Killer Adversary}
-\label{tab:killer}
-\centering
-\small
-\begin{tabular}{lrrrr}
-\toprule
-\textbf{Thuật toán} & $N$ & \textbf{Số so sánh} & \textbf{max\_depth} & \textbf{Trạng thái} \\
-\midrule
-Quick Sort & $2.000$ & $1.011.992$ & $1.000$ & ok ($O(N^2)$) \\
-pdqsort & $2.000$ & \textbf{24.047} & \textbf{9} & ok ($O(N \log N)$) \\
-\midrule
-Quick Sort & $10.000$ & $> 2.5 \times 10^7$ & $> 4.800$ & stack risk / crash \\
-pdqsort & $10.000$ & \textbf{142.180} & \textbf{13} & ok (Heap fallback) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Kết quả khảo sát đối kháng:}\\
-1) \textbf{Sự thoái hóa của Quick Sort giáo trình:} Trên mảng sát thủ $N = 2.000$, số phép so sánh của Quick Sort tăng vọt lên $1.011.992$ (tiệm cận mức cực đại $\approx N^2 / 4$), gấp hơn 50 lần so với dữ liệu ngẫu nhiên $D_1$. Nghiêm trọng hơn, độ sâu đệ quy tăng vọt tới $1.000$ ($= N/2$). Khi mở rộng lên $N = 10.000$, Quick Sort đối mặt với nguy cơ \texttt{StackOverflowError} do độ sâu ngăn xếp gọi hàm vượt quá giới hạn mặc định của JVM.\\
-2) \textbf{Cơ chế tự vệ của pdqsort:} Trên cùng dữ liệu đối kháng $N = 2.000$, pdqsort chỉ tốn $24.047$ phép so sánh (ít hơn Quick Sort tới 42 lần) và độ sâu đệ quy chỉ là $9$. pdqsort phát hiện phân hoạch lệch nặng ($size < N/8$), tiến hành hoán đổi phá mẫu (\texttt{breakPatterns}); khi số lần lệch vượt ngưỡng $\lfloor \log_2 N \rfloor$, thuật toán lập tức chuyển sang \texttt{HeapSort.sortRange}. Nhờ đó, pdqsort hoàn toàn miễn nhiễm trước các tấn công từ chối dịch vụ (DoS) bằng dữ liệu sát thủ.
+Theo Bảng~\ref{tab:killer}, tại $N=10^4$ Quick Sort tốn \RQkillerQuickOpsFour{} phép so sánh (độ sâu \RQkillerQuickDepthFour), pdqsort tốn \RQkillerPdqOpsFour{} (độ sâu \RQkillerPdqDepthFour). Tại $N=10^5$, Quick Sort \texttt{\RQkillerQuickStatusFive} vì StackOverflowError, còn pdqsort \texttt{\RQkillerPdqStatusFive} với độ sâu \RQkillerPdqDepthFive{} nhờ phá mẫu và chuyển sang \texttt{HeapSort.sortRange}.
 
 \section{Đe dọa tính hợp lệ (Threats to Validity)}
 \begin{itemize}

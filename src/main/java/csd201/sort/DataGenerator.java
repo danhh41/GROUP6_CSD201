@@ -352,6 +352,35 @@ public final class DataGenerator {
         if (n <= 1) {
             return new int[n];
         }
+        // Mô phỏng Quick Sort đệ quy sâu tới N/2 tầng: chạy trên luồng riêng có ngăn xếp 1 GiB
+        // để bộ SINH dữ liệu không bị StackOverflowError ở N = 10^5. Dữ liệu sinh ra không đổi;
+        // thuật toán được đo vẫn chạy với ngăn xếp mặc định trong BenchmarkRunner.
+        final int[][] out = new int[1][];
+        final Throwable[] err = new Throwable[1];
+        Thread gen = new Thread(null, () -> {
+            try {
+                out[0] = killerAdversaryImpl(n);
+            } catch (Throwable t) {
+                err[0] = t;
+            }
+        }, "killer-generator", 1L << 30);
+        gen.start();
+        try {
+            gen.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Bị ngắt khi sinh dữ liệu KILLER", e);
+        }
+        if (err[0] instanceof RuntimeException) {
+            throw (RuntimeException) err[0];
+        }
+        if (err[0] instanceof Error) {
+            throw (Error) err[0];
+        }
+        return out[0];
+    }
+
+    private static int[] killerAdversaryImpl(int n) {
         int gas = n - 1;
         int[] val = new int[n];
         Arrays.fill(val, gas);

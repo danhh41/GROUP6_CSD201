@@ -14,6 +14,7 @@ import java.util.Locale;
  * <pre>
  *   java -cp target/classes csd201.sort.PdqEvidence ablation   -> results/pdq_ablation.csv
  *   java -Xmx3g -cp target/classes csd201.sort.PdqEvidence count -> results/pdq_count.csv
+ *   java -Xmx2g -cp target/classes csd201.sort.PdqEvidence jit   -> results/pdq_jit.csv
  * </pre>
  *
  * <ul>
@@ -32,6 +33,8 @@ public final class PdqEvidence {
         String mode = args.length > 0 ? args[0] : "ablation";
         if ("count".equals(mode)) {
             runCount(new File(args.length > 1 ? args[1] : "results/pdq_count.csv"));
+        } else if ("jit".equals(mode)) {
+            runJit(new File(args.length > 1 ? args[1] : "results/pdq_jit.csv"));
         } else {
             runAblation(new File(args.length > 1 ? args[1] : "results/pdq_ablation.csv"));
         }
@@ -147,6 +150,43 @@ public final class PdqEvidence {
                                 p.getMaxDepth(), p.getBadPartitions(), p.getHeapFallbacks(), h, ok);
                         w.println(line);
                         w.flush();
+                        System.out.println(line);
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // Thí nghiệm JIT: cùng một JVM, gọi lặp 8 lần trên cùng dữ liệu
+    // =========================================================================
+
+    /*
+     * Lượt đo của BenchmarkRunner chỉ làm nóng trên D1 (50.000 phần tử). Trên D1, cơ chế A
+     * (partialInsertionSort) hầu như không được gọi nên chưa được JIT biên dịch khi đo D2/D3.
+     * Thí nghiệm này gọi pdq 8 lần liên tiếp trong cùng JVM để thấy thời gian khi đường A đã nóng.
+     * Kết quả: results/pdq_jit.csv (variant,dataset,n,seed,call,elapsed_ms,correct).
+     */
+    private static void runJit(File out) throws IOException {
+        String[] variants = {"base", "noA", "noB"};
+        String[] datas = {"D2", "D3", "D5-2"};
+        int n = 1_000_000;
+        int calls = 8;
+        try (PrintWriter w = open(out)) {
+            w.println("variant,dataset,n,seed,call,elapsed_ms,correct");
+            for (String d : datas) {
+                int[] base = make(d, n, 1);
+                int[] expected = base.clone();
+                Arrays.sort(expected);
+                for (String v : variants) {
+                    for (int call = 1; call <= calls; call++) {
+                        int[] a = base.clone();
+                        long t0 = System.nanoTime();
+                        PdqSort.sort(a, v);
+                        long t1 = System.nanoTime();
+                        String line = String.format(Locale.ROOT, "%s,%s,%d,%d,%d,%.4f,%s",
+                                v, d, n, 1, call, (t1 - t0) / 1e6, Arrays.equals(a, expected));
+                        w.println(line);
                         System.out.println(line);
                     }
                 }

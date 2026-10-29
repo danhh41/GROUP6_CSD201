@@ -204,6 +204,13 @@ Các cờ bổ trợ quan trọng:
 # Tổng hợp kết quả thống kê
 .\summarize_rq1.ps1
 .\summarize_rq2.ps1
+
+# Chạy RQ3: quick, pdq (base/noA/noB), lib trên dữ liệu RQ2 + mảng sát thủ -> results/rq3.csv
+.\run_rq3.ps1            # Linux/macOS: ./run_rq3.sh
+
+# Bằng chứng phần lõi pdq (Người 5)
+java -cp target/classes csd201.sort.PdqEvidence ablation   # -> results/pdq_ablation.csv
+java -Xmx2g -cp target/classes csd201.sort.PdqEvidence jit # -> results/pdq_jit.csv
 ```
 
 ---
@@ -224,8 +231,10 @@ java -cp target/classes csd201.sort.BenchmarkRunner --algo radix --data D3 --n 1
 
 ### C. Tái hiện RQ3 (pdqsort, dữ liệu nhị phân D5 $K=2$, $N = 1.000.000$)
 ```bash
-java -cp target/classes csd201.sort.BenchmarkRunner --algo pdq --data D5 --k 2 --n 1000000 --seed 1 --rq RQ3 --out results/recheck_rq3.csv
+java -cp target/classes csd201.sort.BenchmarkRunner --algo pdq --variant base --data D5 --k 2 --n 1000000 --seed 1 --rq RQ3 --out results/recheck_rq3.csv
+java -cp target/classes csd201.sort.BenchmarkRunner --algo pdq --variant noB  --data D5 --k 2 --n 1000000 --seed 1 --rq RQ3 --out results/recheck_rq3.csv
 ```
+`--variant` chọn cơ chế của pdq: `base` (A + B), `noA`, `noB`, `core` (không A, B).
 
 ### D. Tái hiện ca đối kháng Killer Adversary ($N = 2.000$)
 Chứng minh Quick Sort thoái hóa về $O(N^2)$ so sánh và $N/2$ độ sâu, trong khi pdqsort bảo toàn $O(N \log N)$:
@@ -247,7 +256,14 @@ python plot_figures.py
 * **Hình 1 (`fig1_rq1_scaling.png`):** Thông lượng và quy luật mở rộng thời gian theo $N$ ($10^5 \to 2\times 10^7$) trên thang Log-Log cho RQ1.
 * **Hình 2 (`fig2_rq2_runtime_by_distribution.png`):** Biểu đồ cột nhóm so sánh thời gian thực thi của 4 thuật toán trên các phân phối D1–D5 cho RQ2.
 * **Hình 3 (`fig3_rq2_ops_count.png`):** So sánh số thao tác cơ bản và độ sâu đệ quy trên từng dạng phân phối dữ liệu.
-* **Hình 4 (`fig4_rq3_pdq_ablation.png`):** Thí nghiệm triệt tiêu bóc tách đóng góp của Cơ chế A (`noA`) và Cơ chế B (`noB`) trong pdqsort.
+* **Hình 4 (`fig4_rq3_runtime.png`):** Thời gian Quick Sort, pdqsort, `noA`, `noB`, lib-Arrays.sort tại $N = 10^7$ (RQ3), từ `results/rq3.csv`.
+* **Hình 5 (`fig5_pdq_core_ablation.png`):** Số so sánh khi tắt từng cơ chế lõi của pdq, từ `results/pdq_ablation.csv`.
+
+Hình 4, 5 và các bảng/con số RQ3 của paper (`paper/tables/rq3_*.tex`, `paper/rq3_numbers.tex`) tạo bằng:
+
+```bash
+python plot_rq3.py
+```
 
 ---
 

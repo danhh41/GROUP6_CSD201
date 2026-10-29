@@ -125,6 +125,57 @@ public class PdqSortTest {
         assertTrue(p.getHeapFallbacks() > 0, "Phải có ít nhất một lần chuyển sang Heap Sort");
     }
 
+    @Test
+    @DisplayName("Mọi biến thể (base, noA, noB, core): 2.000 mảng 0..3.000 thuộc D1–D5 đều đúng")
+    public void testAllVariantsRandom() {
+        String[] variants = {"base", "noA", "noB", "core"};
+        String[] kinds = {"D1", "D2", "D3", "D4", "D5"};
+        int[] ks = {DataGenerator.K_1000, DataGenerator.K_10, DataGenerator.K_2};
+        SplittableRandom r = new SplittableRandom(11);
+        for (int t = 0; t < 2000; t++) {
+            int n = r.nextInt(3001);
+            int[] input = DataGenerator.generate(kinds[t % 5], n, r.nextLong(), ks[(t / 5) % 3]);
+            int[] expected = input.clone();
+            Arrays.sort(expected);
+            for (String v : variants) {
+                int[] x = input.clone();
+                PdqSort.sort(x, v);
+                assertArrayEquals(expected, x, "sort(" + v + ") sai, n = " + n);
+                int[] y = input.clone();
+                PdqSort.sortWithCount(y, v);
+                assertArrayEquals(expected, y, "sortWithCount(" + v + ") sai, n = " + n);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Mọi biến thể đúng trên D3, N = 10^6 (ca từng làm cơ chế A mất phần tử)")
+    public void testAllVariantsNearlySortedLarge() {
+        int[] input = DataGenerator.generateD3(1_000_000, 1);
+        int[] expected = input.clone();
+        Arrays.sort(expected);
+        for (String v : new String[]{"base", "noA", "noB", "core"}) {
+            int[] x = input.clone();
+            PdqSort.sort(x, v);
+            assertArrayEquals(expected, x, "sort(" + v + ") sai trên D3");
+        }
+    }
+
+    @Test
+    @DisplayName("Cơ chế A: dãy đã sắp chỉ tốn O(N) so sánh; cơ chế B: D5 K=2 không cần Heap Sort")
+    public void testMechanismsHaveEffect() {
+        int n = 1_000_000;
+        long sortedFull = PdqSort.unpackComparisons(PdqSort.sortWithCount(DataGenerator.generateD2(n, 1), "base"));
+        long sortedNoA = PdqSort.unpackComparisons(PdqSort.sortWithCount(DataGenerator.generateD2(n, 1), "noA"));
+        assertTrue(sortedFull < 3L * n, "base trên D2 phải gần tuyến tính, đo được " + sortedFull);
+        assertTrue(sortedNoA > 10L * n, "noA trên D2 phải cỡ N log N, đo được " + sortedNoA);
+
+        int[] dup = DataGenerator.generateD5(200_000, 1, DataGenerator.K_2);
+        PdqSort withB = new PdqSort(true, true, true);
+        withB.run(dup, 0, dup.length);
+        assertEquals(0, withB.getHeapFallbacks(), "Có cơ chế B thì D5 K=2 không phải chuyển sang Heap Sort");
+    }
+
     // -------------------------------------------------------------------------
 
     private static void runRandomArrays(int count, int maxSize, long seed) {

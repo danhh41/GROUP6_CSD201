@@ -157,10 +157,16 @@ public class BenchmarkRunner {
 
         // Chuẩn hóa tên thuật toán theo Bảng 2 & Bảng 4 (lib-Arrays.sort)
         String algoName = "lib".equals(rawAlgoName) ? "lib-Arrays.sort" : rawAlgoName;
-        Algo algo = REGISTRY.get(rawAlgoName);
-        if (algo == null) {
+        Algo registered = REGISTRY.get(rawAlgoName);
+        if (registered == null) {
             throw new IllegalArgumentException("Thuat toan chua duoc dang ky: " + rawAlgoName);
         }
+        // pdq: --variant quyết định cơ chế được bật (base = A + B, noA, noB, core = không A, B).
+        // Trước đây variant chỉ được ghi vào CSV nên mọi dòng pdq thực chất là bản lõi.
+        final String v = variant;
+        final Algo algo = "pdq".equals(rawAlgoName)
+                ? new Algo(arr -> PdqSort.sort(arr, v), arr -> PdqSort.sortWithCount(arr, v))
+                : registered;
 
         String params = ("D5".equals(data) || k > 0) ? ("k=" + k) : "k=0";
 
