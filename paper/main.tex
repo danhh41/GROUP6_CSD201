@@ -142,7 +142,11 @@ Mọi thuật toán được hiện thực bằng Java 17 trên mảng thuần n
 Quick Sort được cài đặt chuẩn mực theo phân hoạch Hoare hai đầu: hai con trỏ $i$ và $j$ chạy hội tụ từ hai phía và dừng lại ngay khi gặp khóa bằng pivot ($a[i] \ge \text{pivot}$ và $a[j] \le \text{pivot}$). Pivot được lựa chọn là trung vị của ba phần tử đầu, giữa và cuối đoạn (\texttt{medianOfThree}: $lo, mid, hi$). Thuật toán đệ quy cả hai phía, không chuyển sang Insertion Sort và không sử dụng phân hoạch Lomuto. Ở lượt đo \texttt{--count}, hàm \texttt{sortWithCount} đếm chính xác số phép so sánh khóa và độ sâu đệ quy tối đa (\texttt{max\_depth}), đóng gói vào số nguyên 64-bit \texttt{long} (32 bit cao là \texttt{max\_depth}, 32 bit thấp là \texttt{comparisons}).
 
 \subsection{Cài đặt Merge Sort Top-Down Tái Sử Dụng Mảng Phụ (Cặp 1)}
-Merge Sort được xây dựng theo mô hình Top-Down chia đôi đệ quy từ trên xuống. Để triệt tiêu overhead cấp phát bộ nhớ lặp lại, thuật toán chỉ cấp phát \textbf{duy nhất một lần} mảng phụ kích thước $N$ (\texttt{int[] aux = new int[N]}) tại hàm gọi ban đầu và truyền tham chiếu xuyên suốt cây đệ quy. Quá trình trộn hai mảng con tuân thủ nghiêm ngặt quy định không tối ưu bỏ qua bước trộn (tuyệt đối không dùng \texttt{if (a[mid] <= a[mid+1]) return;}).
+Thuật toán Merge Sort được hiện thực theo mô hình Top-Down chia đôi đệ quy từ trên xuống. Để triệt tiêu hoàn toàn chi phí cấp phát bộ nhớ lặp lại và giảm thiểu áp lực lên bộ dọn rác (Garbage Collector) của JVM khi xử lý dữ liệu quy mô lớn ($N = 2\times 10^7$), thuật toán chỉ cấp phát \textbf{duy nhất một lần} mảng phụ kích thước $N$ (\texttt{int[] aux = new int[a.length]}) tại hàm gọi gốc ban đầu và truyền con trỏ xuyên suốt cây đệ quy.
+
+Điểm chia đôi đoạn được tính toán bằng phép dịch bit logic \texttt{mid = lo + ((hi - lo) >>> 1)} nhằm triệt tiêu nguy cơ tràn số nguyên 32-bit khi chỉ số vượt ngưỡng $2^{30}$. Quá trình trộn hai mảng con tuân thủ nghiêm ngặt quy định không tối ưu bỏ qua bước trộn (tuyệt đối không dùng \texttt{if (a[mid] <= a[mid+1]) return;}) nhằm bảo đảm việc đo đếm số phép tính phản ánh trung thực bản chất giáo trình.
+
+Hàm hỗ trợ sắp xếp đoạn nửa mở $[lo, hi)$ (\texttt{sortRange}) bảo toàn nguyên vẹn các phần tử ngoài phạm vi. Trong bước trộn, khi hai khóa bằng nhau, thuật toán ưu tiên nhặt phần tử bên nửa trái (\texttt{aux[i]}), bảo toàn nghiêm ngặt tính chất \textbf{sắp xếp ổn định (Stable Sort)}. Ở chế độ đếm (\texttt{--count}), hàm \texttt{sortWithCount} đếm chính xác từng phép so sánh trực tiếp khi trộn (\texttt{aux[j] < aux[i]}) và cập nhật độ sâu ngăn xếp tối đa (\texttt{max\_depth}), sau đó đóng gói kết quả vào một số nguyên 64-bit \texttt{long} (32 bit cao là \texttt{max\_depth}, 32 bit thấp là số phép so sánh).
 
 \subsection{Cài đặt Heap Sort và Hàm Fallback cho pdqsort (Cặp 2)}
 Heap Sort được cài đặt max-heap tại chỗ bằng phương pháp dựng bottom-up từ chỉ số $(n/2 - 1)$ xuống $0$. Để hỗ trợ pdqsort cứu nguy khi đệ quy lệch, mô-đun cung cấp hàm:
@@ -189,12 +193,42 @@ h = \sum_{i=0}^{N-1} 31^{N-1-i} \cdot a[i] \pmod{2^{64}}
 để bảo đảm tính đúng đắn tuyệt đối.
 
 \section{Thiết lập thực nghiệm (Experimental Setup)}
+Để bảo đảm tính khách quan, khoa học và khả năng tái lập 100\% theo yêu cầu của Mục 6 và Mục 7.5 trong Quy định chung đồ án, quy trình thực nghiệm được thiết kế và kiểm soát nghiêm ngặt theo các tiêu chuẩn hội nghị quốc tế.
+
+\subsection{Môi trường phần cứng và Thực thi máy ảo (Runtime)}
+Toàn bộ các lượt đo thực nghiệm được triển khai trên máy đo tiêu chuẩn (Bảng \ref{tab:setup}). Môi trường thực thi sử dụng OpenJDK 17 64-bit Server VM với cờ cấp phát heap cố định \texttt{-Xmx8g} (và \texttt{-Xmx4g} trên các máy trạm cá nhân). Nhằm triệt tiêu hiện tượng rò rỉ trạng thái giữa các lần chạy, mỗi tổ hợp thử nghiệm được cô lập hoàn toàn trong một tiến trình JVM độc lập khởi tạo qua \texttt{ProcessBuilder}, áp dụng giới hạn thời gian thực thi (timeout) nghiêm ngặt là 60 giây theo Mục 6.1.
+
+\begin{table}[htbp]
+\caption{Tham số môi trường và cấu hình thực nghiệm chuẩn (Mục 6.1--6.7)}
+\label{tab:setup}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Tham số cấu hình} & \textbf{Đặc tả kỹ thuật thiết lập} \\
+\midrule
+Bộ vi xử lý (CPU) & Intel Core i7-12650H (10 lõi, 16 luồng, max 4.7 GHz) \\
+Bộ nhớ hệ thống (RAM) & 16 GB DDR4/DDR5 tốc độ cao \\
+Hệ điều hành & Microsoft Windows 11 Home 64-bit \\
+Môi trường Java & OpenJDK 17.0.20.1 (Temurin 64-Bit Server VM) \\
+Cấp phát bộ nhớ Heap & \texttt{-Xmx8g} (chuẩn) và \texttt{-Xmx4g} (máy runner cá nhân) \\
+Thời gian Timeout & 60 giây / lượt đo (tự động hủy tiến trình) \\
+Làm nóng JIT (Warmup) & 3 lượt khởi động với mảng ngẫu nhiên $N = 50.000$ \\
+Hạt giống ngẫu nhiên & 3 seed độc lập (1, 2, 3) lấy trung vị Median \\
+Thang quy mô dữ liệu & $N \in \{10^5, 10^6, 5\times 10^6, 10^7, 2\times 10^7\}$ \\
+Họ phân phối dữ liệu & $D_1$ (ngẫu nhiên), $D_2$ (tăng dần), $D_3$ (gần tăng dần), $D_4$ (giảm dần), $D_5$ ($K \in \{1000, 10, 2\}$) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Giao thức đo lường và Kiểm soát nhiễu}
+Quy trình đo lường tuân thủ nghiêm ngặt nguyên tắc cô lập số liệu:
 \begin{itemize}
-    \item \textbf{Phần cứng và Môi trường:} Máy đo thử nghiệm trang bị CPU 8 lõi, 16 GB RAM, hệ điều hành Windows 11 64-bit, JDK 17 (HotSpot 64-bit Server VM) với cờ cấp phát heap cố định \texttt{-Xmx8g}.
-    \item \textbf{Quy trình đo có kiểm soát:} Mỗi tổ hợp cấu hình được khởi chạy trong một tiến trình JVM độc lập qua \texttt{ProcessBuilder} với giới hạn thời gian (timeout) nghiêm ngặt 60 giây.
-    \item \textbf{Làm nóng JIT (Mục 6.2):} Mỗi tiến trình chạy làm nóng 3 lần trên mảng ngẫu nhiên $50.000$ phần tử trước khi kích hoạt bộ đếm thời gian.
-    \item \textbf{Cô lập phép đo:} Thời gian được đo bằng \texttt{System.nanoTime()} bao bọc duy nhất hàm sắp xếp. Đỉnh bộ nhớ được ghi nhận qua \texttt{MemoryPoolMXBean} sau khi cưỡng bức \texttt{System.gc()}. Lượt đo số phép tính (\texttt{--count}) được tách riêng biệt thành một lượt chạy độc lập.
-    \item \textbf{Bộ dữ liệu thử nghiệm (Bảng 4):} $D_1$ (Ngẫu nhiên đều), $D_2$ (Tăng dần), $D_3$ (Gần tăng dần, hoán đổi $N/1000$ cặp), $D_4$ (Giảm dần hoàn toàn), và $D_5$ (Trùng lặp với $K \in \{1000, 10, 2\}$).
+    \item \textbf{Làm nóng JIT (Mục 6.2):} Trước khi bấm giờ, mỗi tiến trình chạy 3 lượt sắp xếp làm nóng trên mảng ngẫu nhiên $50.000$ phần tử để JIT Compiler kích hoạt C2 Compiler tối ưu mã bytecode thành mã máy, loại trừ độ trễ khởi động của JVM.
+    \item \textbf{Cô lập phép đo thời gian:} Thời gian thực thi (\texttt{elapsed\_ms}) được đo bằng \texttt{System.nanoTime()} bao bọc duy nhất lời gọi hàm sắp xếp, tuyệt đối không tính thời gian sinh dữ liệu và kiểm tra tính đúng.
+    \item \textbf{Đo đỉnh bộ nhớ Heap (Mục 6.3):} Sử dụng \texttt{MemoryPoolMXBean} để theo dõi bộ nhớ heap đỉnh (\texttt{heap\_peak\_bytes}) sau khi cưỡng bức \texttt{System.gc()} trước mỗi lượt đo.
+    \item \textbf{Tách biệt lượt đếm thao tác (Mục 6.4):} Lượt đo số phép tính (\texttt{--count}) được tách thành một tiến trình chạy độc lập để tránh việc chèn lệnh đếm làm sai lệch tốc độ xung nhịp CPU.
+    \item \textbf{Tính tái lập và Đối chứng oracle (Mục 6.6):} Toàn bộ kết quả sau khi sắp xếp đều được kiểm tra khớp $100\%$ với mảng sắp bằng oracle \texttt{Arrays.sort} và tính mã băm đa thức 64-bit (\texttt{output\_check}).
 \end{itemize}
 
 \section{Kết quả và Thảo luận (Results \& Discussion)}
