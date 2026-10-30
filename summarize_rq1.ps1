@@ -45,21 +45,35 @@ $summary = $rows | Group-Object algorithm, dataset, n | ForEach-Object {
     $timingRows = @($good | Where-Object { $_.elapsed_ms -ne $null -and $_.elapsed_ms -ne "" })
     $times = @($timingRows | ForEach-Object { [double]$_.elapsed_ms })
     $peaks = @($timingRows | Where-Object { $_.heap_peak_bytes -ne "" } | ForEach-Object { [double]$_.heap_peak_bytes })
+    $auxBytes = @($timingRows | Where-Object { $_.heap_peak_bytes -ne "" -and $_.heap_before_bytes -ne "" } | ForEach-Object {
+        [double]$_.heap_peak_bytes - [double]$_.heap_before_bytes
+    })
 
     $countRows = @($good | Where-Object { $_.ops_count -ne $null -and $_.ops_count -ne "" })
     $ops   = @($countRows | ForEach-Object { [double]$_.ops_count })
 
+    $depthRows = @($good | Where-Object { $_.max_depth -ne $null -and $_.max_depth -ne "" -and $_.max_depth -ne "-1" })
+    $depths = @($depthRows | ForEach-Object { [int]$_.max_depth })
+
+    $medTime = Median $times
+    $nVal = [int]$g[0].n
+    # Throughput (triệu phần tử/giây) = (N / 10^6) / (median_ms / 1000) = (N / 1000) / median_ms
+    $throughput = if ($medTime -and $medTime -gt 0) { [Math]::Round(($nVal / 1000.0) / $medTime, 2) } else { $null }
+
     [pscustomobject]@{
         algorithm        = $g[0].algorithm
         dataset          = $g[0].dataset
-        n                = [int]$g[0].n
+        n                = $nVal
         runs_ok          = $good.Count
         runs_failed      = $failed.Count
-        median_ms        = Median $times
+        median_ms        = $medTime
         min_ms           = if ($times.Count) { ($times | Measure-Object -Minimum).Minimum } else { $null }
         max_ms           = if ($times.Count) { ($times | Measure-Object -Maximum).Maximum } else { $null }
+        throughput_M_sec = $throughput
         median_heap_peak = Median $peaks
+        heap_aux_bytes   = Median $auxBytes
         median_ops       = Median $ops
+        max_depth        = if ($depths.Count) { ($depths | Measure-Object -Maximum).Maximum } else { $null }
     }
 } | Sort-Object n, algorithm
 
