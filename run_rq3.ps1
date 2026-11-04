@@ -41,7 +41,8 @@ if (-not $Java) {
     }
 }
 
-$gitCommit = (git rev-parse --short HEAD 2>$null)
+$gitCommit = $null
+try { $gitCommit = (& git rev-parse --short HEAD 2>$null) } catch { $gitCommit = $null }
 if (-not $gitCommit) { $gitCommit = "unknown" }
 $machineId = $env:COMPUTERNAME
 
@@ -69,6 +70,9 @@ $outDir = Split-Path $Out
 if ($outDir -and -not (Test-Path $outDir)) {
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 }
+# Thong bao loi cua Java (vd. StackOverflowError cua Quick Sort tren KILLER) ghi vao file log,
+# khong in ra man hinh. Crash cua quick tren KILLER 10^5 la ket qua mong doi.
+$errLog = [System.IO.Path]::ChangeExtension($Out, $null).TrimEnd('.') + "_stderr.log"
 
 function Count-Rows($f) {
     if (Test-Path $f) { return (Get-Content $f | Measure-Object -Line).Lines } else { return 0 }
@@ -81,9 +85,21 @@ function Run-One($algo, $variant, $data, $n, $seed, $k, $repeat, $extra) {
                "--rq RQ3 --repeat $repeat --xmx $Xmx --machine_id $machineId " +
                "--git_commit $gitCommit --timeout $TimeoutSec --out `"$Out`" $extra"
 
-    $p = Start-Process -FilePath $Java -ArgumentList $argList -PassThru -NoNewWindow
+    $errTmp = [System.IO.Path]::GetTempFileName()
+    $p = Start-Process -FilePath $Java -ArgumentList $argList -PassThru -NoNewWindow `
+                       -RedirectStandardError $errTmp
+    $null = $p.Handle   # giu handle de doc duoc ExitCode sau WaitForExit(timeout)
     # Runner tự ghi dòng timeout sau $TimeoutSec giây; đây chỉ là kill dự phòng khi JVM treo
     $finished = $p.WaitForExit(($TimeoutSec + 60) * 1000)
+    if ($finished) { $p.WaitForExit() }
+    if (Test-Path $errTmp) {
+        $errText = Get-Content $errTmp -Raw
+        if ($errText) {
+            Add-Content -Path $errLog -Value "=== $algo/$variant $data n=$n seed=$seed k=$k repeat=$repeat ==="
+            Add-Content -Path $errLog -Value $errText
+        }
+        Remove-Item $errTmp -ErrorAction SilentlyContinue
+    }
 
     $status = $null
     if (-not $finished) {
@@ -131,4 +147,5 @@ if (-not $SkipKiller) {
 }
 
 Write-Host "=== XONG RQ3 -> $Out ===" -ForegroundColor Cyan
+if (Test-Path $errLog) { Write-Host "Thong bao loi cua Java (neu co) nam trong: $errLog" }
 Write-Host "Tiep theo: python plot_rq3.py   (tao hinh va bang cho paper)"

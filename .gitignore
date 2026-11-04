@@ -4,3 +4,6 @@ target/
 *.iml
 .vscode/
 *.log
+results/thu/
+results/*_stderr.log
+results/rq3.csv.bak_*

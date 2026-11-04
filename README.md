@@ -206,6 +206,8 @@ Các cờ bổ trợ quan trọng:
 .\summarize_rq2.ps1
 
 # Chạy RQ3: quick, pdq (base/noA/noB), lib trên dữ liệu RQ2 + mảng sát thủ -> results/rq3.csv
+# Cách gọn nhất trên Windows (không cần Maven): nháy đúp chay_rq3.bat
+#   tự biên dịch, đo RQ3, chạy ablation + jit, vẽ hình; chạy thử 1-2 phút: chay_rq3.bat -Thu
 .\run_rq3.ps1            # Linux/macOS: ./run_rq3.sh
 
 # Bằng chứng phần lõi pdq (Người 5)

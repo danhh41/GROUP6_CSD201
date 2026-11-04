@@ -1,4 +1,4 @@
-"""
+r"""
 plot_rq3.py - Tạo hình, bảng LaTeX và các con số cho phần pdqsort / RQ3 của paper (Cặp 3).
 
 Đầu vào (CSV thô, 21 cột Bảng 4 của quy định chung):
