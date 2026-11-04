@@ -171,9 +171,35 @@ foreach ($try in @(@("py", "-3"), @("python"), @("python3"))) {
     $ErrorActionPreference = $oldEap
     if ($LASTEXITCODE -eq 0 -and "$v" -match "Python 3") { $py = $c.Source; $pyArgs = $extra; break }
 }
+if (-not $py -and $onWindows) {
+    # Python da cai nhung khong nam trong PATH: tim o cac thu muc cai dat thuong gap
+    $pyDirs = @()
+    if ($env:LOCALAPPDATA) { $pyDirs += (Join-Path $env:LOCALAPPDATA "Programs\Python") }
+    $pyDirs += @("C:\Program Files", "C:\Program Files (x86)", "C:\")
+    $found = @()
+    foreach ($d in $pyDirs) {
+        if (Test-Path $d) {
+            $found += @(Get-ChildItem $d -Directory -Filter "Python3*" -ErrorAction SilentlyContinue |
+                        ForEach-Object { Join-Path $_.FullName "python.exe" })
+        }
+    }
+    if ($env:USERPROFILE) {
+        foreach ($n in @("anaconda3", "miniconda3", "Anaconda3", "Miniconda3")) {
+            $found += (Join-Path $env:USERPROFILE "$n\python.exe")
+        }
+    }
+    if ($env:ProgramData) { $found += (Join-Path $env:ProgramData "anaconda3\python.exe") }
+    foreach ($f in ($found | Sort-Object -Descending)) {
+        if (Test-Path $f) { $py = $f; $pyArgs = @(); break }
+    }
+}
 if (-not $py) {
-    Loi ("Khong tim thay Python 3. Cai tu python.org (tick 'Add python.exe to PATH') roi chay:`n" +
-         "     .\chay_rq3.ps1 -ChiVe")
+    $again = ".\chay_rq3.bat -ChiVe"
+    if ($Thu) { $again = ".\chay_rq3.bat -Thu -ChiVe" }
+    Loi ("Khong tim thay Python 3. Cai Python 3 tu https://www.python.org/downloads/`n" +
+         "     (o man hinh cai dat nho tick 'Add python.exe to PATH'), dong cua so nay roi chay:`n" +
+         "     $again`n" +
+         "     Cac buoc do da xong, lenh tren chi ve hinh, khong do lai.")
 }
 Write-Host "Python: $py $pyArgs"
 $oldEap = $ErrorActionPreference; $ErrorActionPreference = "Continue"
