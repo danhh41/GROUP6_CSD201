@@ -4,7 +4,7 @@
 [![Maven](https://img.shields.io/badge/Apache%20Maven-3.8%2B-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)](https://maven.apache.org/)
 [![JUnit 5](https://img.shields.io/badge/JUnit-5.10.2-25A162?style=for-the-badge&logo=junit5&logoColor=white)](https://junit.org/junit5/)
 [![Tests](https://img.shields.io/badge/Tests-42%2F42%20Passing-brightgreen?style=for-the-badge)](https://github.com/)
-[![Paper](https://img.shields.io/badge/Paper-IEEE%20Format-00629B?style=for-the-badge&logo=ieee&logoColor=white)](paper/main.tex)
+[![Paper](https://img.shields.io/badge/Paper-IEEE%20Format-00629B?style=for-the-badge&logo=ieee&logoColor=white)](report/report.pdf)
 
 Dự án nghiên cứu và thực nghiệm môn **CSD201 — Data Structures and Algorithms** (Học kỳ: Fall 2026, Lớp: SE20C, Mã đề tài: `261014`, Đại học FPT).
 
@@ -56,25 +56,36 @@ GROUP6_CSD201/
 ├── README.md                               # Tài liệu hướng dẫn chuẩn của dự án
 ├── PHAN_CONG.md                            # Bảng phân công chi tiết 6 thành viên (Mục 3.4)
 ├── plot_figures.py                         # Script Python vẽ toàn bộ biểu đồ báo cáo
+├── generate_compare_img.py                 # Script Python tạo hệ thống 11 biểu đồ trực quan hóa chuyên sâu
 ├── run_rq1.ps1                             # Script PowerShell tự động hóa thí nghiệm RQ1
 ├── run_rq2.ps1                             # Script PowerShell tự động hóa thí nghiệm RQ2
 ├── run_rq2_count.ps1                       # Script đo đạc lượt đếm thao tác cho RQ2
 ├── summarize_rq1.ps1                       # Script tổng hợp bảng số liệu RQ1
 ├── summarize_rq2.ps1                       # Script tổng hợp bảng số liệu RQ2
-├── report/                                 # Bài báo khoa học chuẩn IEEE (LaTeX)
-│   └── main.tex                            # Báo cáo bằng latex
+├── report/                                 # Báo cáo dự án môn học CSD201 (IEEE Conference Format)
+│   ├── main.tex                            # Mã nguồn LaTeX bài báo chuẩn IEEE Conference
+│   ├── report.pdf                          # Báo cáo chính thức môn học CSD201 (Biên dịch Overleaf)
+│   ├── fig1_rq1_scaling.png                # Hình 1: Quy luật tăng trưởng thời gian trên D1 (Log-Log)
+│   ├── fig2_rq2_runtime_by_distribution.png # Hình 2: So sánh runtime trên D1–D5 tại N = 10^7
+│   ├── fig3_rq2_ops_count.png              # Hình 3: So sánh số thao tác cơ bản tại N = 10^7
+│   └── fig4_rq3_pdq_ablation.png           # Hình 4: Ablation study bóc tách Cơ chế A và B tại N = 10^7
 ├── docs/                                   # Báo cáo nội bộ và tài liệu phân tích
 │   └── Cap3_pdqsort_Methods_Results.docx
 ├── results/                                # Kết quả thực nghiệm CSV và biểu đồ đã sinh
-│   ├── rq1.csv                             # Dữ liệu thô thực nghiệm RQ1
+│   ├── rq1.csv                             # Dữ liệu thô thực nghiệm RQ1 (21 cột chuẩn IEEE)
 │   ├── rq2_v2.csv                          # Dữ liệu thô thực nghiệm RQ2
-│   ├── pdq_ablation.csv                    # Thí nghiệm triệt tiêu từng cơ chế pdqsort
+│   ├── rq3_data.csv                        # Dữ liệu thực nghiệm toàn diện RQ3 (pdq full, noA, noB, quick, lib)
+│   ├── summary_rq1.csv                     # Bảng tổng hợp số liệu đo đạc RQ1
+│   ├── summary_all_v2.csv                  # Bảng tổng hợp số liệu đo đạc RQ2
+│   ├── pdq_ablation.csv                    # Thí nghiệm triệt tiêu phần lõi pdqsort
 │   ├── pdq_count.csv                       # Số thao tác & độ sâu đệ quy pdqsort
-│   └── figures/                            # Thư mục biểu đồ vector phân giải cao (Fig 1 - 4)
-│       ├── fig1_rq1_scaling.png
-│       ├── fig2_rq2_runtime_by_distribution.png
-│       ├── fig3_rq2_ops_count.png
-│       └── fig4_rq3_pdq_ablation.png
+│   ├── machine.txt                         # Log cấu hình phần cứng và môi trường JVM máy đo chính
+│   ├── figures/                            # Thư mục biểu đồ vector phân giải cao 300 DPI (Fig 1 - 4)
+│   │   ├── fig1_rq1_scaling.png
+│   │   ├── fig2_rq2_runtime_by_distribution.png
+│   │   ├── fig3_rq2_ops_count.png
+│   │   └── fig4_rq3_pdq_ablation.png
+│   └── compare_img/                        # Hệ thống 11 biểu đồ trực quan hóa chuyên sâu (Fig 1 - 11)
 └── src/
     ├── main/java/csd201/sort/              # Mã nguồn các thuật toán & tiện ích đo lường
     │   ├── QuickSort.java                  # Hoare partition, median-of-3, count & max_depth
@@ -84,6 +95,7 @@ GROUP6_CSD201/
     │   ├── PdqSort.java                    # pdqsort đầy đủ (Tukey ninther, Cơ chế A, Cơ chế B, Fallback)
     │   ├── DataGenerator.java              # Bộ sinh dữ liệu chuẩn D1–D5 & Killer Adversary
     │   ├── BenchmarkRunner.java            # Bộ runner đo đạc chuẩn (nanoTime, MXBean heap, hash check)
+    │   ├── RunRQ3.java                     # Bộ đo đạc thực nghiệm độc lập toàn diện cho RQ3
     │   ├── CsvWriter.java                  # Trình ghi CSV 21 cột chuẩn IEEE
     │   ├── PdqEvidence.java                # Lớp thực nghiệm bóc tách chứng cứ pdqsort
     │   └── TempGenerators.java             # Lớp chuyển tiếp tương thích ngược
