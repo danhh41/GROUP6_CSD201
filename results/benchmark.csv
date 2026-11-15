@@ -1,0 +1,3 @@
+run_id,rq,algorithm,variant,dataset,n,params,seed,input_sha256,generator_version,repeat,elapsed_ms,heap_before_bytes,heap_peak_bytes,ops_count,max_depth,output_check,status,xmx,machine_id,git_commit
+1dba48c3,RQ2,quick,base,D1,1000,k=0,1,f2c4b6d57c6169b0807dfa15ad3f9c7cdbc267772fe83b41fbdb1d6b40309da4,1.0,1,0.0534,948936,948936,,,3569118235526932922,ok,4g,FOTZS41,git
+e0e5beb6,RQ2,quick,base,D1,1000,k=0,1,f2c4b6d57c6169b0807dfa15ad3f9c7cdbc267772fe83b41fbdb1d6b40309da4,1.0,1,,,,15850,18,3569118235526932922,ok,4g,FOTZS41,git

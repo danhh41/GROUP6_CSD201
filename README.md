@@ -61,8 +61,8 @@ GROUP6_CSD201/
 ├── run_rq2_count.ps1                       # Script đo đạc lượt đếm thao tác cho RQ2
 ├── summarize_rq1.ps1                       # Script tổng hợp bảng số liệu RQ1
 ├── summarize_rq2.ps1                       # Script tổng hợp bảng số liệu RQ2
-├── paper/                                  # Bài báo khoa học chuẩn IEEE (LaTeX)
-│   └── main.tex                            # Mã nguồn LaTeX bài báo (2 cột IEEE, trang bìa độc lập)
+├── report/                                 # Bài báo khoa học chuẩn IEEE (LaTeX)
+│   └── main.tex                            # Báo cáo bằng latex
 ├── docs/                                   # Báo cáo nội bộ và tài liệu phân tích
 │   └── Cap3_pdqsort_Methods_Results.docx
 ├── results/                                # Kết quả thực nghiệm CSV và biểu đồ đã sinh

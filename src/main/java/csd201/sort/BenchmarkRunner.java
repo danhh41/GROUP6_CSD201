@@ -55,12 +55,17 @@ public class BenchmarkRunner {
     // ===== Đăng ký thuật toán =====
     public static final Map<String, Algo> REGISTRY = new LinkedHashMap<>();
 
+    // Biến lưu variant hiện tại cho pdqsort (được set trước khi chạy)
+    static volatile String currentVariant = "base";
+
     static {
         REGISTRY.put("quick", new Algo(QuickSort::sort, QuickSort::sortWithCount));
         REGISTRY.put("merge", new Algo(MergeSort::sort, MergeSort::sortWithCount));
         REGISTRY.put("heap", new Algo(HeapSort::sort, HeapSort::sortWithCount));
         REGISTRY.put("radix", new Algo(RadixSort::sort, RadixSort::sortWithCount));
-        REGISTRY.put("pdq", new Algo(PdqSort::sort, PdqSort::sortWithCount));
+        REGISTRY.put("pdq", new Algo(
+                a -> PdqSort.sort(a, currentVariant),
+                a -> PdqSort.sortWithCount(a, currentVariant)));
         REGISTRY.put("lib-Arrays.sort", new Algo(Arrays::sort, null));
         REGISTRY.put("lib", REGISTRY.get("lib-Arrays.sort")); // alias
     }
@@ -90,6 +95,9 @@ public class BenchmarkRunner {
 
         boolean isCountOnly = o.containsKey("count");
         boolean isTimingOnly = o.containsKey("timing-only");
+
+        // Truyền variant vào pdqsort trước khi chạy
+        currentVariant = variant;
 
         try {
             CsvWriter.ensureHeader(csvFile);

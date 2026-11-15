@@ -449,6 +449,7 @@ public final class PdqSort {
                 a[sift] = a[sift - 1];
                 sift--;
                 if (++limit > PARTIAL_INSERTION_SORT_LIMIT) {
+                    a[sift] = tmp;
                     return false;
                 }
             }

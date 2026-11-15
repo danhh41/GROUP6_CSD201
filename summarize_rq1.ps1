@@ -60,8 +60,54 @@ $summary = $rows | Group-Object algorithm, dataset, n | ForEach-Object {
     # Throughput (triệu phần tử/giây) = (N / 10^6) / (median_ms / 1000) = (N / 1000) / median_ms
     $throughput = if ($medTime -and $medTime -gt 0) { [Math]::Round(($nVal / 1000.0) / $medTime, 2) } else { $null }
 
+    $algoName = $g[0].algorithm
+    $medOps = Median $ops
+    $medAuxBytes = Median $auxBytes
+    $auxMb = if ($medAuxBytes -ne $null) { [Math]::Round($medAuxBytes / (1024.0 * 1024.0), 2) } else { $null }
+
+    # Phân loại số phép so sánh (comparisons), thao tác (operations) và độ phức tạp bộ nhớ phụ:
+    # - quick, merge, heap: thuật toán so sánh khóa -> ops_count là số phép so sánh khóa
+    # - radix: thuật toán phi so sánh -> comparisons = 0, ops_count là 12N thao tác đọc/ghi bộ nhớ
+    # - lib-Arrays.sort: thư viện chuẩn Java, không can thiệp đếm được (null)
+    $comparisons = $null
+    $operations = $null
+    $auxComplexity = ""
+
+    switch ($algoName) {
+        "quick" {
+            $comparisons   = $medOps
+            $operations    = $null
+            $auxComplexity = "O(log N)"
+        }
+        "merge" {
+            $comparisons   = $medOps
+            $operations    = $null
+            $auxComplexity = "O(N)"
+        }
+        "heap" {
+            $comparisons   = $medOps
+            $operations    = $null
+            $auxComplexity = "O(1)"
+        }
+        "radix" {
+            $comparisons   = 0
+            $operations    = $medOps
+            $auxComplexity = "O(N)"
+        }
+        "lib-Arrays.sort" {
+            $comparisons   = $null
+            $operations    = $null
+            $auxComplexity = "O(1)"
+        }
+        default {
+            $comparisons   = $medOps
+            $operations    = $null
+            $auxComplexity = "O(1)"
+        }
+    }
+
     [pscustomobject]@{
-        algorithm        = $g[0].algorithm
+        algorithm        = $algoName
         dataset          = $g[0].dataset
         n                = $nVal
         runs_ok          = $good.Count
@@ -70,13 +116,17 @@ $summary = $rows | Group-Object algorithm, dataset, n | ForEach-Object {
         min_ms           = if ($times.Count) { ($times | Measure-Object -Minimum).Minimum } else { $null }
         max_ms           = if ($times.Count) { ($times | Measure-Object -Maximum).Maximum } else { $null }
         throughput_M_sec = $throughput
+        comparisons      = $comparisons
+        operations       = $operations
+        aux_memory_mb    = $auxMb
+        aux_complexity   = $auxComplexity
         median_heap_peak = Median $peaks
-        heap_aux_bytes   = Median $auxBytes
-        median_ops       = Median $ops
+        heap_aux_bytes   = $medAuxBytes
+        median_ops       = $medOps
         max_depth        = if ($depths.Count) { ($depths | Measure-Object -Maximum).Maximum } else { $null }
     }
 } | Sort-Object n, algorithm
 
 $summary | Export-Csv -Path $Out -NoTypeInformation
-$summary | Format-Table -AutoSize
+$summary | Format-Table algorithm, dataset, n, median_ms, throughput_M_sec, comparisons, operations, aux_memory_mb, aux_complexity -AutoSize
 Write-Host "Da xuat file tong hop ket qua RQ1: $Out" -ForegroundColor Green
